@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.api.routes.assets import router as assets_router
 from app.api.routes.projects import router as projects_router
+from app.api.routes.script import router as script_router
+from app.api.routes.storyboard import router as storyboard_router
 from app.api.routes.tasks import router as tasks_router
 from app.api.routes.uploads import router as uploads_router
 from app.core.config import settings
@@ -34,6 +37,9 @@ app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=str(settings.media_root_path)), name="media")
 
 app.include_router(projects_router)
+app.include_router(script_router)
+app.include_router(assets_router)
+app.include_router(storyboard_router)
 app.include_router(tasks_router)
 app.include_router(uploads_router)
 

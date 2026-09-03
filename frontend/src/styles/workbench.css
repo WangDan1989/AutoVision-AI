@@ -42,6 +42,62 @@ body {
   margin-bottom: 16px;
 }
 
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.text-area,
+.field input,
+.field select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.text-area,
+.field input,
+.field select,
+button {
+  border-radius: 8px;
+  border: 1px solid #cfc6ee;
+  padding: 10px 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.field-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.item-card {
+  background: #ffffff;
+  border: 1px solid #ddd6f3;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.preview-image {
+  width: 100%;
+  border-radius: 10px;
+  margin: 8px 0 12px;
+  display: block;
+}
+
 .toast-container {
   position: fixed;
   top: 16px;

@@ -45,9 +45,15 @@ onMounted(async () => {
       </button>
     </nav>
 
-    <Step1ScriptView v-if="activeStep === 1" :project-id="projectId" />
-    <Step2AssetsView v-if="activeStep === 2" :project-id="projectId" />
-    <Step3StoryboardView v-if="activeStep === 3" :project-id="projectId" />
+    <Step1ScriptView v-if="activeStep === 1" :project-id="projectId" :segments="store.segments" @refresh="store.refresh(projectId)" />
+    <Step2AssetsView v-if="activeStep === 2" :project-id="projectId" :assets="store.assets" @refresh="store.refresh(projectId)" />
+    <Step3StoryboardView
+      v-if="activeStep === 3"
+      :project-id="projectId"
+      :segments="store.segments"
+      :frames="store.frames"
+      @refresh="store.refresh(projectId)"
+    />
     <Step4MediaView v-if="activeStep === 4" :project-id="projectId" />
     <Step5ExportView v-if="activeStep === 5" :project-id="projectId" />
   </div>
