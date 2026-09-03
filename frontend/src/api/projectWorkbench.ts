@@ -46,6 +46,30 @@ export function getFrames(projectId: string) {
   return api.get(`/api/projects/${projectId}/frames`);
 }
 
+export function generateVideo(segmentId: string, payload: any) {
+  return api.post(`/api/segments/${segmentId}/videos/generate`, payload);
+}
+
+export function getVideos(projectId: string) {
+  return api.get(`/api/projects/${projectId}/videos`);
+}
+
+export function generateAudio(segmentId: string, payload: any) {
+  return api.post(`/api/segments/${segmentId}/audio/generate`, payload);
+}
+
+export function getAudioTracks(projectId: string) {
+  return api.get(`/api/projects/${projectId}/audio`);
+}
+
+export function generateExport(projectId: string, payload: any) {
+  return api.post(`/api/projects/${projectId}/exports/generate`, payload);
+}
+
+export function getExports(projectId: string) {
+  return api.get(`/api/projects/${projectId}/exports`);
+}
+
 export function uploadMaskFile(file: File) {
   const formData = new FormData();
   formData.append("file", file);

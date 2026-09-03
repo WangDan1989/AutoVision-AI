@@ -49,9 +49,14 @@ body {
   margin-bottom: 12px;
 }
 
+.toolbar-between {
+  justify-content: space-between;
+}
+
 .text-area,
 .field input,
-.field select {
+.field select,
+.preview-media {
   width: 100%;
   box-sizing: border-box;
 }
@@ -96,6 +101,24 @@ button {
   border-radius: 10px;
   margin: 8px 0 12px;
   display: block;
+}
+
+.preview-media {
+  border-radius: 10px;
+  margin: 8px 0 12px;
+  display: block;
+  background: #000000;
+}
+
+.preview-audio {
+  width: 100%;
+  margin: 8px 0 12px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .toast-container {

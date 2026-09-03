@@ -54,7 +54,23 @@ onMounted(async () => {
       :frames="store.frames"
       @refresh="store.refresh(projectId)"
     />
-    <Step4MediaView v-if="activeStep === 4" :project-id="projectId" />
-    <Step5ExportView v-if="activeStep === 5" :project-id="projectId" />
+    <Step4MediaView
+      v-if="activeStep === 4"
+      :project-id="projectId"
+      :segments="store.segments"
+      :frames="store.frames"
+      :videos="store.videos"
+      :audio-tracks="store.audioTracks"
+      @refresh="store.refresh(projectId)"
+    />
+    <Step5ExportView
+      v-if="activeStep === 5"
+      :project-id="projectId"
+      :segments="store.segments"
+      :videos="store.videos"
+      :audio-tracks="store.audioTracks"
+      :exports-list="store.exportsList"
+      @refresh="store.refresh(projectId)"
+    />
   </div>
 </template>

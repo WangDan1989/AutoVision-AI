@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     COMFYUI_CHECKPOINT: str = ""
     COMFYUI_NEGATIVE_PROMPT: str = "low quality, blurry, bad anatomy, extra fingers, deformed face"
     TTS_BASE_URL: str = ""
+    TTS_PROVIDER: str = "edge_tts"
+    TTS_VOICE: str = "zh-CN-XiaoxiaoNeural"
+    FFMPEG_BIN: str = "ffmpeg"
+    DEFAULT_VIDEO_DURATION_SEC: int = 3
 
     MEDIA_ROOT: str = "./storage"
     IMAGES_DIR: str = "images"
