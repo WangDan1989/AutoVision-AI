@@ -61,6 +61,8 @@ function summaryStats(item: any) {
   };
 }
 
+const latestExportItem = computed(() => props.exportsList[0] || null);
+
 function defaultSubtitleText(segment: any) {
   return [segment.dialogue_text || "", segment.narration_text || ""].filter(Boolean).join("\n");
 }
@@ -236,6 +238,57 @@ function resetSubtitleText() {
   toast.success("字幕文本已恢复为自动生成内容");
 }
 
+function applyExportPlanToForm(exportItem: any) {
+  if (!exportItem) {
+    toast.error("当前还没有可复用的导出方案");
+    return;
+  }
+
+  form.subtitle_enabled = !!exportItem.subtitle_enabled;
+  form.transition_enabled = !!exportItem.transition_enabled;
+
+  const planMap = new Map(
+    (exportItem.compose_plan || []).map((plan: any) => [plan.segment_id, plan]),
+  );
+
+  form.subtitle_items = props.segments
+    .map((segment) => {
+      const plan = planMap.get(segment.id);
+      if (!plan) return null;
+      return {
+        segment_id: segment.id,
+        seq_no: Number(segment.seq_no || 0),
+        scene_name: segment.scene_name || "未命名场景",
+        start_sec: Number(plan.subtitle_start_sec || plan.start_sec || 0),
+        end_sec: Number(plan.subtitle_end_sec || plan.end_sec || 0),
+        text: String(plan.subtitle_text || ""),
+      };
+    })
+    .filter(Boolean) as Array<{
+      segment_id: string;
+      seq_no: number;
+      scene_name: string;
+      start_sec: number;
+      end_sec: number;
+      text: string;
+    }>;
+
+  toast.success(`已载入导出版本 v${exportItem.version_no} 的方案`);
+}
+
+function exportPayload() {
+  return {
+    subtitle_enabled: form.subtitle_enabled,
+    transition_enabled: form.transition_enabled,
+    subtitle_items: form.subtitle_items.map((item) => ({
+      segment_id: item.segment_id,
+      start_sec: Number(item.start_sec || 0),
+      end_sec: Number(item.end_sec || 0),
+      text: item.text || "",
+    })),
+  };
+}
+
 function issuesOf(segmentId: string) {
   return issueMap.value.get(segmentId) || [];
 }
@@ -252,20 +305,35 @@ async function handleExport() {
   }
   submitting.value = true;
   try {
-    await generateExport(props.projectId, {
-      subtitle_enabled: form.subtitle_enabled,
-      transition_enabled: form.transition_enabled,
-      subtitle_items: form.subtitle_items.map((item) => ({
-        segment_id: item.segment_id,
-        start_sec: Number(item.start_sec || 0),
-        end_sec: Number(item.end_sec || 0),
-        text: item.text || "",
-      })),
-    });
+    await generateExport(props.projectId, exportPayload());
     toast.success("成片已导出");
     emit("refresh");
   } catch (error) {
     toast.error(getErrorMessage(error, "导出失败"));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function handleReExportLatest() {
+  if (!latestExportItem.value) {
+    toast.error("当前还没有历史导出可复用");
+    return;
+  }
+  applyExportPlanToForm(latestExportItem.value);
+
+  if (blockingPrecheckItems.value.length) {
+    toast.error("最近导出方案存在当前不可通过的预检项，请先修正");
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await generateExport(props.projectId, exportPayload());
+    toast.success(`已按导出版本 v${latestExportItem.value.version_no} 的方案重新导出`);
+    emit("refresh");
+  } catch (error) {
+    toast.error(getErrorMessage(error, "重新导出失败"));
   } finally {
     submitting.value = false;
   }
@@ -282,6 +350,16 @@ async function handleExport() {
       <button :disabled="submitting || !segments.length || readyCount < segments.length || blockingPrecheckItems.length > 0" @click="handleExport">
         开始导出
       </button>
+    </div>
+
+    <div class="toolbar" v-if="latestExportItem">
+      <button type="button" :disabled="submitting" @click="applyExportPlanToForm(latestExportItem)">
+        载入最近导出方案
+      </button>
+      <button type="button" :disabled="submitting || !segments.length" @click="handleReExportLatest">
+        按最近方案重导
+      </button>
+      <span class="helper-text">当前最近版本：v{{ latestExportItem.version_no }}</span>
     </div>
 
     <div class="form-grid">
