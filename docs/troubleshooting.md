@@ -5,6 +5,7 @@
 - 可先执行 `python scripts/check_runtime.py` 做运行前自检
 - 若后端能启动但真实依赖仍不确定，可执行 `python scripts/service_smoke_test.py`
 - 后端启动后可再执行 `python scripts/smoke_test.py`，确认最小 HTTP 接口链路是否正常
+- 若希望继续验证真实流水线，可执行 `python scripts/pipeline_smoke_test.py --through step1`
 - 检查是否已执行 `pip install -r requirements.txt`
 - 检查 `backend/.env` 是否存在
 - 检查当前目录是否为 `backend/`

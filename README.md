@@ -72,6 +72,18 @@ python scripts/smoke_test.py
 python scripts/service_smoke_test.py
 ```
 
+- 如果需要验证最小真实流水线，可执行：
+
+```bash
+python scripts/pipeline_smoke_test.py --through step1
+```
+
+- 若只想先验证后端创建项目与基础数据链路，可执行：
+
+```bash
+python scripts/pipeline_smoke_test.py --through project
+```
+
 ## Linux / macOS 前端启动
 
 ```bash
@@ -110,6 +122,18 @@ python scripts/smoke_test.py
 
 ```powershell
 python scripts/service_smoke_test.py
+```
+
+- 如果需要验证最小真实流水线，可执行：
+
+```powershell
+python scripts/pipeline_smoke_test.py --through step1
+```
+
+- 若只想先验证后端创建项目与基础数据链路，可执行：
+
+```powershell
+python scripts/pipeline_smoke_test.py --through project
 ```
 
 ### 前端开发启动（PowerShell）
