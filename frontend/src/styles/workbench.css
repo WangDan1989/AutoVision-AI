@@ -205,6 +205,33 @@ button {
   margin-bottom: 16px;
 }
 
+.quick-run-panel {
+  background: #f5fbff;
+  border: 1px solid #b9def4;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.quick-run-progress,
+.quick-run-failure-item {
+  margin: 0;
+}
+
+.quick-run-progress {
+  color: #2c5282;
+}
+
+.quick-run-failures {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.quick-run-failures strong {
+  color: #c53030;
+}
+
 .precheck-list {
   display: grid;
   gap: 8px;

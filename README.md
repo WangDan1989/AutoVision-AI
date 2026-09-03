@@ -26,6 +26,8 @@
 
 - `Step 5` 支持载入最近一次导出方案并重新导出
 
+- `Step 5` 支持一键补齐缺失视频/音频并导出
+
 ## 目录说明
 
 - `backend/`：FastAPI、SQLite、真实服务接入、媒体导出链路
@@ -188,6 +190,8 @@ EXPORT_TRANSITION_SEC=0.35
 - Step 5 compose plan 摘要展示
 
 - Step 5 最近方案重导
+
+- Step 5 一键补齐素材并导出
 
 - 成片导出
 

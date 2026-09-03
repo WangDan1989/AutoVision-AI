@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, computed, ref, watch } from "vue";
 
-import { generateExport } from "../../api/projectWorkbench";
+import { generateAudio, generateExport, generateVideo } from "../../api/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
@@ -20,6 +20,9 @@ const emit = defineEmits<{
 const toast = useToastStore();
 const submitting = ref(false);
 const previewTime = ref(0);
+const quickRunRunning = ref(false);
+const quickRunProgress = ref({ phase: "idle", done: 0, total: 0, success: 0, failed: 0 });
+const quickRunFailures = ref<Array<{ label: string; message: string }>>([]);
 const DEFAULT_TRANSITION_SEC = 0.35;
 const form = reactive({
   subtitle_enabled: true,
@@ -289,6 +292,23 @@ function exportPayload() {
   };
 }
 
+function defaultVideoPayload() {
+  return {
+    duration_sec: 3,
+    fps: 24,
+    width: 1280,
+    height: 720,
+  };
+}
+
+function defaultAudioPayload() {
+  return {
+    track_type: "NARRATION",
+    voice_profile: "",
+    text_content: "",
+  };
+}
+
 function issuesOf(segmentId: string) {
   return issueMap.value.get(segmentId) || [];
 }
@@ -338,6 +358,90 @@ async function handleReExportLatest() {
     submitting.value = false;
   }
 }
+
+async function handleQuickRunPipeline() {
+  if (!props.segments.length) {
+    toast.error("当前项目还没有可处理的分镜");
+    return;
+  }
+
+  quickRunRunning.value = true;
+  quickRunFailures.value = [];
+
+  const missingVideoItems = props.segments.filter((segment) => !latestVideo(segment.id));
+  quickRunProgress.value = {
+    phase: "补齐视频",
+    done: 0,
+    total: missingVideoItems.length,
+    success: 0,
+    failed: 0,
+  };
+
+  for (const segment of missingVideoItems) {
+    try {
+      await generateVideo(segment.id, defaultVideoPayload());
+      quickRunProgress.value.success += 1;
+    } catch (error) {
+      quickRunProgress.value.failed += 1;
+      quickRunFailures.value.push({
+        label: `视频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+        message: getErrorMessage(error, "生成视频失败"),
+      });
+    } finally {
+      quickRunProgress.value.done += 1;
+    }
+  }
+
+  const missingAudioItems = props.segments.filter((segment) => !props.audioTracks.some((item) => item.segment_id === segment.id));
+  quickRunProgress.value = {
+    phase: "补齐音频",
+    done: 0,
+    total: missingAudioItems.length,
+    success: 0,
+    failed: quickRunProgress.value.failed,
+  };
+
+  for (const segment of missingAudioItems) {
+    try {
+      await generateAudio(segment.id, defaultAudioPayload());
+      quickRunProgress.value.success += 1;
+    } catch (error) {
+      quickRunProgress.value.failed += 1;
+      quickRunFailures.value.push({
+        label: `音频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+        message: getErrorMessage(error, "生成音频失败"),
+      });
+    } finally {
+      quickRunProgress.value.done += 1;
+    }
+  }
+
+  quickRunProgress.value = {
+    phase: "导出成片",
+    done: 0,
+    total: 1,
+    success: 0,
+    failed: quickRunProgress.value.failed,
+  };
+
+  try {
+    await generateExport(props.projectId, exportPayload());
+    quickRunProgress.value.success = 1;
+    quickRunProgress.value.done = 1;
+    toast.success("已完成补齐素材并导出");
+    emit("refresh");
+  } catch (error) {
+    quickRunProgress.value.failed += 1;
+    quickRunProgress.value.done = 1;
+    quickRunFailures.value.push({
+      label: "导出成片",
+      message: getErrorMessage(error, "导出失败"),
+    });
+    toast.error(getErrorMessage(error, "一键补齐并导出失败"));
+  } finally {
+    quickRunRunning.value = false;
+  }
+}
 </script>
 
 <template>
@@ -347,16 +451,34 @@ async function handleReExportLatest() {
         <h2>Step 5 合成导出</h2>
         <p>已具备视频分镜：{{ readyCount }}/{{ segments.length }}</p>
       </div>
-      <button :disabled="submitting || !segments.length || readyCount < segments.length || blockingPrecheckItems.length > 0" @click="handleExport">
+      <button :disabled="submitting || quickRunRunning || !segments.length || readyCount < segments.length || blockingPrecheckItems.length > 0" @click="handleExport">
         开始导出
       </button>
+    </div>
+
+    <div class="quick-run-panel">
+      <div class="toolbar">
+        <button type="button" :disabled="submitting || quickRunRunning || !segments.length" @click="handleQuickRunPipeline">
+          一键补齐素材并导出
+        </button>
+        <span class="helper-text">会按顺序补齐缺失视频、缺失音频，然后直接导出</span>
+      </div>
+      <p v-if="quickRunRunning || quickRunProgress.phase !== 'idle'" class="quick-run-progress">
+        当前阶段：{{ quickRunProgress.phase }}，进度 {{ quickRunProgress.done }}/{{ quickRunProgress.total }}，成功 {{ quickRunProgress.success }}，失败 {{ quickRunProgress.failed }}
+      </p>
+      <div v-if="quickRunFailures.length" class="quick-run-failures">
+        <strong>本轮快捷流程失败项</strong>
+        <p v-for="item in quickRunFailures" :key="`${item.label}-${item.message}`" class="quick-run-failure-item">
+          {{ item.label }}：{{ item.message }}
+        </p>
+      </div>
     </div>
 
     <div class="toolbar" v-if="latestExportItem">
       <button type="button" :disabled="submitting" @click="applyExportPlanToForm(latestExportItem)">
         载入最近导出方案
       </button>
-      <button type="button" :disabled="submitting || !segments.length" @click="handleReExportLatest">
+      <button type="button" :disabled="submitting || quickRunRunning || !segments.length" @click="handleReExportLatest">
         按最近方案重导
       </button>
       <span class="helper-text">当前最近版本：v{{ latestExportItem.version_no }}</span>
