@@ -50,6 +50,7 @@ onMounted(async () => {
     <Step3StoryboardView
       v-if="activeStep === 3"
       :project-id="projectId"
+      :project="store.project"
       :segments="store.segments"
       :frames="store.frames"
       @refresh="store.refresh(projectId)"
@@ -57,15 +58,18 @@ onMounted(async () => {
     <Step4MediaView
       v-if="activeStep === 4"
       :project-id="projectId"
+      :project="store.project"
       :segments="store.segments"
       :frames="store.frames"
       :videos="store.videos"
       :audio-tracks="store.audioTracks"
+      :tasks="store.tasks"
       @refresh="store.refresh(projectId)"
     />
     <Step5ExportView
       v-if="activeStep === 5"
       :project-id="projectId"
+      :project="store.project"
       :segments="store.segments"
       :videos="store.videos"
       :audio-tracks="store.audioTracks"
