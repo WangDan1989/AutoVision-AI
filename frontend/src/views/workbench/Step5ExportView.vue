@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { reactive, computed, ref, watch } from "vue";
 
-import { generateAudio, generateExport, generateVideo } from "../../api/projectWorkbench";
+import { generateAudio, generateExport, generateVideo, updateProjectPreferences } from "../../api/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
 const props = defineProps<{
   projectId: string;
+  project: any;
   segments: any[];
   videos: any[];
   audioTracks: any[];
@@ -24,6 +25,8 @@ const quickRunRunning = ref(false);
 const quickRunProgress = ref({ phase: "idle", done: 0, total: 0, success: 0, failed: 0 });
 const quickRunFailures = ref<Array<{ label: string; message: string }>>([]);
 const DEFAULT_TRANSITION_SEC = 0.35;
+let hydrating = false;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const form = reactive({
   subtitle_enabled: true,
   transition_enabled: true,
@@ -36,6 +39,59 @@ const form = reactive({
     text: string;
   }>,
 });
+
+function defaultStoryboardPrefs() {
+  return props.project?.preferences?.storyboard || {
+    prompt_override: "",
+    negative_prompt_override: "",
+    width: props.project?.target_width || 1280,
+    height: props.project?.target_height || 720,
+  };
+}
+
+function defaultMediaPrefs() {
+  return props.project?.preferences?.media || {
+    video_duration_sec: 3,
+    video_fps: props.project?.fps || 24,
+    video_width: props.project?.target_width || 1280,
+    video_height: props.project?.target_height || 720,
+    audio_track_type: "NARRATION",
+    audio_voice_profile: "",
+  };
+}
+
+watch(
+  () => props.project?.preferences?.export,
+  (value) => {
+    hydrating = true;
+    form.subtitle_enabled = value?.subtitle_enabled ?? true;
+    form.transition_enabled = value?.transition_enabled ?? true;
+    hydrating = false;
+  },
+  { immediate: true, deep: true },
+);
+
+watch(
+  () => [form.subtitle_enabled, form.transition_enabled],
+  () => {
+    if (hydrating || !props.project) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        await updateProjectPreferences(props.projectId, {
+          storyboard: defaultStoryboardPrefs(),
+          media: defaultMediaPrefs(),
+          export: {
+            subtitle_enabled: form.subtitle_enabled,
+            transition_enabled: form.transition_enabled,
+          },
+        });
+      } catch {
+        // keep local form usable even if persistence fails
+      }
+    }, 400);
+  },
+);
 
 function latestVideo(segmentId: string) {
   return props.videos
@@ -293,18 +349,20 @@ function exportPayload() {
 }
 
 function defaultVideoPayload() {
+  const media = defaultMediaPrefs();
   return {
-    duration_sec: 3,
-    fps: 24,
-    width: 1280,
-    height: 720,
+    duration_sec: Number(media.video_duration_sec || 3),
+    fps: Number(media.video_fps || props.project?.fps || 24),
+    width: Number(media.video_width || props.project?.target_width || 1280),
+    height: Number(media.video_height || props.project?.target_height || 720),
   };
 }
 
 function defaultAudioPayload() {
+  const media = defaultMediaPrefs();
   return {
-    track_type: "NARRATION",
-    voice_profile: "",
+    track_type: media.audio_track_type || "NARRATION",
+    voice_profile: media.audio_voice_profile || "",
     text_content: "",
   };
 }

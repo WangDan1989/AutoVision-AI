@@ -8,6 +8,12 @@ export function getProject(projectId: string) {
   return api.get(`/api/projects/${projectId}`);
 }
 
+export function updateProjectPreferences(projectId: string, preferences: any) {
+  return api.patch(`/api/projects/${projectId}/preferences`, {
+    preferences,
+  });
+}
+
 export function getTasks(projectId?: string) {
   return api.get("/api/tasks", { params: { project_id: projectId } });
 }

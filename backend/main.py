@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api.routes.audio import router as audio_router
 from app.api.routes.assets import router as assets_router
@@ -29,10 +30,23 @@ def ensure_storage_dirs() -> None:
         (settings.media_root_path / dirname).mkdir(parents=True, exist_ok=True)
 
 
+def ensure_runtime_columns() -> None:
+    with engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(projects)")).mappings().all()
+        columns = {row["name"] for row in rows}
+        if "preferences_json" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE projects ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_storage_dirs()
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_columns()
     yield
 
 

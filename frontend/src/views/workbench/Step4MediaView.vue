@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 
-import { generateAudio, generateVideo } from "../../api/projectWorkbench";
+import { generateAudio, generateVideo, updateProjectPreferences } from "../../api/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
 const props = defineProps<{
   projectId: string;
+  project: any;
   segments: any[];
   frames: any[];
   videos: any[];
@@ -29,14 +30,75 @@ const batchVideoFailures = ref<Array<{ segmentId: string; label: string; message
 const batchAudioFailures = ref<Array<{ segmentId: string; label: string; message: string }>>([]);
 const videoForms = reactive<Record<string, any>>({});
 const audioForms = reactive<Record<string, any>>({});
+const defaults = reactive({
+  video_duration_sec: 3,
+  video_fps: 24,
+  video_width: 1280,
+  video_height: 720,
+  audio_track_type: "NARRATION",
+  audio_voice_profile: "",
+});
+let hydrating = false;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function defaultStoryboardPrefs() {
+  return props.project?.preferences?.storyboard || {
+    prompt_override: "",
+    negative_prompt_override: "",
+    width: props.project?.target_width || 1280,
+    height: props.project?.target_height || 720,
+  };
+}
+
+function defaultExportPrefs() {
+  return props.project?.preferences?.export || {
+    subtitle_enabled: true,
+    transition_enabled: true,
+  };
+}
+
+watch(
+  () => props.project?.preferences?.media,
+  (value) => {
+    hydrating = true;
+    defaults.video_duration_sec = Number(value?.video_duration_sec || 3);
+    defaults.video_fps = Number(value?.video_fps || props.project?.fps || 24);
+    defaults.video_width = Number(value?.video_width || props.project?.target_width || 1280);
+    defaults.video_height = Number(value?.video_height || props.project?.target_height || 720);
+    defaults.audio_track_type = value?.audio_track_type || "NARRATION";
+    defaults.audio_voice_profile = value?.audio_voice_profile || "";
+    hydrating = false;
+  },
+  { immediate: true, deep: true },
+);
+
+watch(
+  defaults,
+  () => {
+    if (hydrating || !props.project) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        await updateProjectPreferences(props.projectId, {
+          storyboard: defaultStoryboardPrefs(),
+          media: { ...defaults },
+          export: defaultExportPrefs(),
+        });
+      } catch {
+        // keep local form usable even if persistence fails
+      }
+    }, 400);
+  },
+  { deep: true },
+);
 
 function videoFormOf(segmentId: string) {
   if (!videoForms[segmentId]) {
     videoForms[segmentId] = {
-      duration_sec: 3,
-      fps: 24,
-      width: 1280,
-      height: 720,
+      duration_sec: defaults.video_duration_sec,
+      fps: defaults.video_fps,
+      width: defaults.video_width,
+      height: defaults.video_height,
     };
   }
   return videoForms[segmentId];
@@ -45,12 +107,29 @@ function videoFormOf(segmentId: string) {
 function audioFormOf(segment: any) {
   if (!audioForms[segment.id]) {
     audioForms[segment.id] = {
-      track_type: "NARRATION",
-      voice_profile: "",
+      track_type: defaults.audio_track_type,
+      voice_profile: defaults.audio_voice_profile,
       text_content: segment.dialogue_text || segment.narration_text || "",
     };
   }
   return audioForms[segment.id];
+}
+
+function applyDefaultsToAllForms() {
+  for (const segment of props.segments) {
+    videoForms[segment.id] = {
+      duration_sec: defaults.video_duration_sec,
+      fps: defaults.video_fps,
+      width: defaults.video_width,
+      height: defaults.video_height,
+    };
+    audioForms[segment.id] = {
+      track_type: defaults.audio_track_type,
+      voice_profile: defaults.audio_voice_profile,
+      text_content: audioForms[segment.id]?.text_content || segment.dialogue_text || segment.narration_text || "",
+    };
+  }
+  toast.success("已把项目默认参数应用到当前全部分镜表单");
 }
 
 function latestLockedFrame(segmentId: string) {
@@ -242,6 +321,39 @@ async function handleBatchGenerateAudio() {
 <template>
   <section class="step-view">
     <h2>Step 4 图生视频与音频</h2>
+
+    <div class="batch-panel">
+      <div class="toolbar toolbar-between">
+        <strong>项目默认生成参数</strong>
+        <button type="button" @click="applyDefaultsToAllForms">应用默认值到全部分镜</button>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>默认片段时长（秒）</span>
+          <input v-model.number="defaults.video_duration_sec" type="number" min="1" max="30" />
+        </label>
+        <label class="field">
+          <span>默认 FPS</span>
+          <input v-model.number="defaults.video_fps" type="number" min="1" max="60" />
+        </label>
+        <label class="field">
+          <span>默认宽度</span>
+          <input v-model.number="defaults.video_width" type="number" min="256" step="64" />
+        </label>
+        <label class="field">
+          <span>默认高度</span>
+          <input v-model.number="defaults.video_height" type="number" min="256" step="64" />
+        </label>
+        <label class="field">
+          <span>默认音轨类型</span>
+          <input v-model="defaults.audio_track_type" placeholder="如 NARRATION / DIALOGUE" />
+        </label>
+        <label class="field">
+          <span>默认音色</span>
+          <input v-model="defaults.audio_voice_profile" placeholder="默认回填到每个分镜" />
+        </label>
+      </div>
+    </div>
 
     <div class="batch-panel">
       <div class="toolbar">

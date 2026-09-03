@@ -17,3 +17,4 @@ class Project(Base, TimestampMixin):
     target_height: Mapped[int] = mapped_column(Integer, nullable=False, default=720)
     fps: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
     raw_script_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    preferences_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
