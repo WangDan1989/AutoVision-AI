@@ -55,11 +55,11 @@ async function handleExport() {
     <div class="form-grid">
       <label class="field-inline">
         <input v-model="form.subtitle_enabled" type="checkbox" />
-        <span>保留字幕开关（当前仅入库，未烧录）</span>
+        <span>烧录字幕到成片</span>
       </label>
       <label class="field-inline">
         <input v-model="form.transition_enabled" type="checkbox" />
-        <span>保留转场开关（当前按顺序硬拼接）</span>
+        <span>启用片段淡入淡出转场</span>
       </label>
     </div>
 

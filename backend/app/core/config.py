@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     TTS_VOICE: str = "zh-CN-XiaoxiaoNeural"
     FFMPEG_BIN: str = "ffmpeg"
     DEFAULT_VIDEO_DURATION_SEC: int = 3
+    EXPORT_TRANSITION_SEC: float = 0.35
 
     MEDIA_ROOT: str = "./storage"
     IMAGES_DIR: str = "images"

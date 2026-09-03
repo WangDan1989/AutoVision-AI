@@ -55,6 +55,73 @@ class ExportService:
             + 1
         )
 
+    def _subtitle_text(self, segment: ScriptSegment) -> str:
+        dialogue = (segment.dialogue_text or "").strip()
+        narration = (segment.narration_text or "").strip()
+        if dialogue and narration:
+            return f"{dialogue}\n{narration}"
+        return dialogue or narration
+
+    def _format_srt_time(self, seconds: float) -> str:
+        total_ms = max(int(round(seconds * 1000)), 0)
+        hours = total_ms // 3_600_000
+        minutes = (total_ms % 3_600_000) // 60_000
+        secs = (total_ms % 60_000) // 1000
+        millis = total_ms % 1000
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+    def _write_srt(self, srt_path: Path, subtitles: list[dict]) -> None:
+        srt_path.parent.mkdir(parents=True, exist_ok=True)
+        lines: list[str] = []
+        for idx, item in enumerate(subtitles, start=1):
+            text = (item.get("text") or "").strip()
+            if not text:
+                continue
+            lines.append(str(idx))
+            lines.append(
+                f"{self._format_srt_time(float(item['start_sec']))} --> {self._format_srt_time(float(item['end_sec']))}"
+            )
+            lines.append(text)
+            lines.append("")
+        srt_path.write_text("\n".join(lines), encoding="utf-8")
+
+    def _build_transition_video(
+        self,
+        ffmpeg_bin: str,
+        clips: list[dict],
+        output_path: Path,
+        transition_sec: float,
+    ) -> None:
+        command = [ffmpeg_bin, "-y"]
+        for clip in clips:
+            command.extend(["-i", clip["video_path"]])
+
+        filter_parts: list[str] = []
+        last_label = "[0:v]"
+        elapsed = float(clips[0]["duration_sec"])
+        for idx in range(1, len(clips)):
+            next_label = f"[{idx}:v]"
+            out_label = f"[v{idx}]"
+            offset = max(elapsed - transition_sec, 0.0)
+            filter_parts.append(
+                f"{last_label}{next_label}xfade=transition=fade:duration={transition_sec}:offset={offset}{out_label}"
+            )
+            last_label = out_label
+            elapsed += float(clips[idx]["duration_sec"]) - transition_sec
+
+        command.extend(
+            [
+                "-filter_complex",
+                ";".join(filter_parts),
+                "-map",
+                last_label,
+                "-pix_fmt",
+                "yuv420p",
+                str(output_path),
+            ]
+        )
+        run_subprocess(command, "FFmpeg 生成转场视频失败")
+
     def create_export(self, project: Project, req: GenerateExportRequest) -> ExportJob:
         task = self.task_log.create(
             project_id=project.id,
@@ -71,54 +138,84 @@ class ExportService:
             if not segments:
                 raise ValueError("当前项目还没有分镜，无法导出")
 
-            clip_paths: list[str] = []
+            transition_sec = max(float(settings.EXPORT_TRANSITION_SEC), 0.0) if req.transition_enabled else 0.0
+            clip_items: list[dict] = []
             timeline_tracks: list[tuple[str, float]] = []
+            subtitle_items: list[dict] = []
             compose_plan: list[dict] = []
             current_offset = 0.0
             for segment in segments:
                 clip = self._latest_clip(segment.id)
                 if not clip or not clip.video_path:
                     raise ValueError(f"分镜 #{segment.seq_no} 还没有可导出的视频片段")
-                clip_paths.append(clip.video_path)
+                clip_duration = float(clip.duration_sec or 0.0)
+                clip_start = max(current_offset, 0.0)
+                clip_end = clip_start + clip_duration
+                clip_items.append(
+                    {
+                        "segment_id": segment.id,
+                        "video_clip_id": clip.id,
+                        "video_path": clip.video_path,
+                        "duration_sec": clip_duration,
+                        "start_sec": clip_start,
+                        "end_sec": clip_end,
+                    }
+                )
                 track = self._latest_track(segment.id)
                 if track and track.audio_path:
-                    timeline_tracks.append((track.audio_path, current_offset))
+                    timeline_tracks.append((track.audio_path, clip_start))
+                subtitle_text = self._subtitle_text(segment)
+                if subtitle_text:
+                    subtitle_items.append(
+                        {
+                            "segment_id": segment.id,
+                            "start_sec": clip_start,
+                            "end_sec": clip_end,
+                            "text": subtitle_text,
+                        }
+                    )
                 compose_plan.append(
                     {
                         "segment_id": segment.id,
                         "seq_no": segment.seq_no,
                         "video_clip_id": clip.id,
                         "audio_track_id": track.id if track else "",
+                        "start_sec": round(clip_start, 3),
+                        "end_sec": round(clip_end, 3),
+                        "subtitle_text": subtitle_text,
                     }
                 )
-                current_offset += float(clip.duration_sec or 0.0)
+                current_offset += clip_duration - transition_sec if transition_sec > 0 else clip_duration
 
             temp_dir = settings.media_root_path / settings.TEMP_DIR
             temp_dir.mkdir(parents=True, exist_ok=True)
             concat_file = temp_dir / f"{project.id}_export_concat.txt"
             merged_video = temp_dir / f"{project.id}_merged_video.mp4"
-            write_concat_file(concat_file, clip_paths)
-
-            run_subprocess(
-                [
-                    ffmpeg_bin,
-                    "-y",
-                    "-f",
-                    "concat",
-                    "-safe",
-                    "0",
-                    "-i",
-                    str(concat_file),
-                    "-c",
-                    "copy",
-                    str(merged_video),
-                ],
-                "FFmpeg 合并视频失败",
-            )
+            if req.transition_enabled and len(clip_items) > 1 and transition_sec > 0:
+                self._build_transition_video(ffmpeg_bin, clip_items, merged_video, transition_sec)
+            else:
+                write_concat_file(concat_file, [item["video_path"] for item in clip_items])
+                run_subprocess(
+                    [
+                        ffmpeg_bin,
+                        "-y",
+                        "-f",
+                        "concat",
+                        "-safe",
+                        "0",
+                        "-i",
+                        str(concat_file),
+                        "-c",
+                        "copy",
+                        str(merged_video),
+                    ],
+                    "FFmpeg 合并视频失败",
+                )
 
             version_no = self._next_version(project.id)
             output_path = settings.media_root_path / settings.EXPORTS_DIR / f"{project.id}_export_v{version_no}.mp4"
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            av_output_path = temp_dir / f"{project.id}_export_av_v{version_no}.mp4"
 
             if timeline_tracks:
                 command = [ffmpeg_bin, "-y", "-i", str(merged_video)]
@@ -145,7 +242,7 @@ class ExportService:
                         "copy",
                         "-c:a",
                         "aac",
-                        str(output_path),
+                        str(av_output_path),
                     ]
                 )
                 run_subprocess(command, "FFmpeg 合成音视频失败")
@@ -158,9 +255,40 @@ class ExportService:
                         str(merged_video),
                         "-c",
                         "copy",
-                        str(output_path),
+                        str(av_output_path),
                     ],
                     "FFmpeg 导出成片失败",
+                )
+
+            subtitle_path = temp_dir / f"{project.id}_export_v{version_no}.srt"
+            if req.subtitle_enabled and subtitle_items:
+                self._write_srt(subtitle_path, subtitle_items)
+                run_subprocess(
+                    [
+                        ffmpeg_bin,
+                        "-y",
+                        "-i",
+                        str(av_output_path),
+                        "-vf",
+                        f"subtitles={subtitle_path.as_posix()}",
+                        "-c:a",
+                        "copy",
+                        str(output_path),
+                    ],
+                    "FFmpeg 烧录字幕失败",
+                )
+            else:
+                run_subprocess(
+                    [
+                        ffmpeg_bin,
+                        "-y",
+                        "-i",
+                        str(av_output_path),
+                        "-c",
+                        "copy",
+                        str(output_path),
+                    ],
+                    "FFmpeg 输出最终成片失败",
                 )
 
             export = ExportJob(
