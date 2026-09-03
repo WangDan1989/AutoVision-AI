@@ -1,0 +1,33 @@
+from enum import Enum
+
+
+class ProjectStatus(str, Enum):
+    DRAFT = "DRAFT"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+    COMPLETED = "COMPLETED"
+
+
+class JobStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class TaskType(str, Enum):
+    SCRIPT_PARSE = "SCRIPT_PARSE"
+    ASSET_REBUILD = "ASSET_REBUILD"
+    GRID_PREVIEW_RENDER = "GRID_PREVIEW_RENDER"
+    KEYFRAME_RENDER = "KEYFRAME_RENDER"
+    INPAINT_RENDER = "INPAINT_RENDER"
+    VIDEO_RENDER = "VIDEO_RENDER"
+    TTS_RENDER = "TTS_RENDER"
+    EXPORT_RENDER = "EXPORT_RENDER"
+
+
+class AssetType(str, Enum):
+    CHARACTER = "CHARACTER"
+    SCENE = "SCENE"
+    PROP = "PROP"
