@@ -2,6 +2,7 @@
 
 ## 基础连通
 
+- [ ] `python scripts/check_runtime.py` 无阻断 FAIL
 - [x] `backend` 可正常启动
 - [ ] `frontend` 可正常启动
 - [x] `GET /healthz` 返回 `ok`

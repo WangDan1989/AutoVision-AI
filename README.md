@@ -54,6 +54,12 @@ bash scripts/dev.sh
 
 - 当前不建议直接使用 `Python 3.14` 运行后端，部分依赖在该版本下可能安装失败
 
+- 启动前可先执行运行时自检：
+
+```bash
+python scripts/check_runtime.py
+```
+
 ## Linux / macOS 前端启动
 
 ```bash
@@ -74,6 +80,12 @@ pip install -r requirements.txt
 copy .env.example .env
 New-Item -ItemType Directory -Force -Path storage\images, storage\videos, storage\audio, storage\exports, storage\loras, storage\temp
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- 启动前可先执行运行时自检：
+
+```powershell
+python scripts/check_runtime.py
 ```
 
 ### 前端开发启动（PowerShell）

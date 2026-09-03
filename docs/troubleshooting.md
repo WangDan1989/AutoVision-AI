@@ -2,6 +2,7 @@
 
 ## 后端无法启动
 
+- 可先执行 `python scripts/check_runtime.py` 做运行前自检
 - 检查是否已执行 `pip install -r requirements.txt`
 - 检查 `backend/.env` 是否存在
 - 检查当前目录是否为 `backend/`
@@ -26,6 +27,7 @@
 
 ## 后续接入 Ollama/ComfyUI 后常见问题
 
+- 可先执行 `python scripts/check_runtime.py`，一次性检查 `.env`、Python 版本、FFmpeg、edge-tts、Ollama、ComfyUI`
 - 输出不是 JSON：先检查 Prompt，再检查解析器
 - Comfy 任务无输出：先检查 `COMFYUI_CHECKPOINT`、工作流节点，再查 `/history`
 - 视频无法生成：先确认是否已有锁定首帧
