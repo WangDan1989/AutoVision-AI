@@ -5,6 +5,7 @@ import argparse
 import json
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -19,6 +20,18 @@ def request_json(method: str, url: str, payload: dict | None = None) -> tuple[in
     with urllib.request.urlopen(req, timeout=10) as resp:
         body = resp.read().decode("utf-8")
         return resp.status, json.loads(body)
+
+
+def request_json_allow_error(method: str, url: str, payload: dict | None = None) -> tuple[int, dict]:
+    try:
+        return request_json(method, url, payload)
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            parsed = {"detail": body}
+        return exc.code, parsed
 
 
 def print_ok(title: str, detail: str) -> None:
@@ -40,8 +53,20 @@ def check_api_response(payload: dict, title: str) -> dict:
     return payload["data"]
 
 
-def run(base_url: str) -> int:
-    project_name = f"smoke-{int(time.time())}"
+def try_cleanup_project(base_url: str, project_id: str) -> None:
+    if not project_id:
+        return
+    status, payload = request_json_allow_error("DELETE", f"{base_url}/api/projects/{project_id}")
+    if status == 200 and payload.get("code") == 0:
+        deleted_files = payload.get("data", {}).get("deleted_files", 0)
+        print_ok("清理测试项目", f"已删除 {project_id}，清理文件数 {deleted_files}")
+    else:
+        print_fail("清理测试项目", f"删除 {project_id} 失败: HTTP {status} - {payload}")
+
+
+def run(base_url: str, prefix: str, cleanup: bool) -> int:
+    project_name = f"{prefix}-{int(time.time())}"
+    project_id = ""
     print(f"目标服务: {base_url}")
     try:
         status, payload = request_json("GET", f"{base_url}/healthz")
@@ -109,13 +134,20 @@ def run(base_url: str) -> int:
         print_fail("Smoke Test", str(exc))
         print("\n结论: 最小 smoke test 未通过，请先修复以上阻断项。")
         return 1
+    finally:
+        if cleanup and project_id:
+            try_cleanup_project(base_url, project_id)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="AutoVision-AI backend minimal smoke test")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="后端服务地址，默认 http://127.0.0.1:8000")
+    parser.add_argument("--prefix", default="smoke", help="测试项目名前缀，默认 smoke")
+    parser.add_argument("--cleanup", action="store_true", help="测试结束后自动删除测试项目")
+    parser.add_argument("--keep-project", action="store_true", help="即使指定 --cleanup 也保留测试项目")
     args = parser.parse_args()
-    return run(args.base_url.rstrip("/"))
+    cleanup = bool(args.cleanup and not args.keep_project)
+    return run(args.base_url.rstrip("/"), args.prefix.strip() or "smoke", cleanup)
 
 
 if __name__ == "__main__":

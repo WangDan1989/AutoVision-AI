@@ -101,3 +101,12 @@ def update_project_preferences(
             "updated_at": updated.updated_at,
         },
     )
+
+
+@router.delete("/{project_id}")
+def delete_project(project_id: str, db: Session = Depends(get_db)):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+    deleted = ProjectService(db).delete_project(project)
+    return ApiResponse(request_id=project_id, data=deleted)

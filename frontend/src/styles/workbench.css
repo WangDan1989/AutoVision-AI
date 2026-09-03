@@ -9,12 +9,39 @@ body {
   min-height: 100vh;
 }
 
+.project-home,
 .workbench {
   padding: 24px;
 }
 
 .workbench-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
   margin-bottom: 16px;
+}
+
+.workbench-header h1,
+.project-create-card h2,
+.project-list-card h2,
+.item-card h3 {
+  margin-top: 0;
+}
+
+.project-create-card,
+.project-list-card {
+  margin-bottom: 16px;
+}
+
+.danger-button {
+  border-color: #f0a3ad;
+  color: #c53030;
+  background: #fff5f5;
+}
+
+.danger-button:disabled {
+  opacity: 0.7;
 }
 
 .step-tabs {

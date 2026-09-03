@@ -6,8 +6,10 @@
 - [ ] `python scripts/service_smoke_test.py` 无阻断 FAIL
 - [x] `backend` 可正常启动
 - [ ] `python scripts/smoke_test.py` 通过
+- [ ] `python scripts/pipeline_smoke_test.py --through project` 通过
 - [ ] `frontend` 可正常启动
 - [x] `GET /healthz` 返回 `ok`
+- [ ] 如有历史测试数据，已执行 `python scripts/cleanup_test_projects.py --dry-run` 检查
 - [ ] `/media/...` 能访问静态资源
 
 ## 数据层
@@ -30,6 +32,7 @@
 
 ## 后续真实能力接入
 
+- [ ] `python scripts/pipeline_smoke_test.py --through step1` 通过
 - [ ] Ollama 剧本拆解
 - [ ] ComfyUI 首帧生成
 - [ ] 视频工作流

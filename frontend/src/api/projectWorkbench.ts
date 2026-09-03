@@ -4,8 +4,16 @@ export function getProjects() {
   return api.get("/api/projects");
 }
 
+export function createProject(payload: any) {
+  return api.post("/api/projects", payload);
+}
+
 export function getProject(projectId: string) {
   return api.get(`/api/projects/${projectId}`);
+}
+
+export function deleteProject(projectId: string) {
+  return api.delete(`/api/projects/${projectId}`);
 }
 
 export function updateProjectPreferences(projectId: string, preferences: any) {

@@ -26,6 +26,8 @@
 
 - `Step 5` 支持查看每次导出的 compose plan 摘要
 
+- 前端新增“项目中心”页面，支持创建项目、进入工作台、删除项目
+
 - `Step 5` 支持载入最近一次导出方案并重新导出
 
 - `Step 5` 支持一键补齐缺失视频/音频并导出
@@ -66,10 +68,40 @@ python scripts/check_runtime.py
 python scripts/smoke_test.py
 ```
 
+- 如需自动回收测试项目，可附加：
+
+```bash
+python scripts/smoke_test.py --cleanup
+```
+
 - 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
 
 ```bash
 python scripts/service_smoke_test.py
+```
+
+- 如果需要验证最小真实流水线，可执行：
+
+```bash
+python scripts/pipeline_smoke_test.py --through step1
+```
+
+- 若只想先验证后端创建项目与基础数据链路，可执行：
+
+```bash
+python scripts/pipeline_smoke_test.py --through project
+```
+
+- 以上两个脚本都支持：
+  `--prefix` 自定义测试项目名前缀
+  `--cleanup` 测试结束后自动删除测试项目
+  `--keep-project` 即使带了 `--cleanup` 也保留测试项目
+
+- 如果想按前缀批量清理历史测试项目，可执行：
+
+```bash
+python scripts/cleanup_test_projects.py --dry-run
+python scripts/cleanup_test_projects.py --prefix smoke --prefix pipeline-smoke
 ```
 
 ## Linux / macOS 前端启动
@@ -106,10 +138,40 @@ python scripts/check_runtime.py
 python scripts/smoke_test.py
 ```
 
+- 如需自动回收测试项目，可附加：
+
+```powershell
+python scripts/smoke_test.py --cleanup
+```
+
 - 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
 
 ```powershell
 python scripts/service_smoke_test.py
+```
+
+- 如果需要验证最小真实流水线，可执行：
+
+```powershell
+python scripts/pipeline_smoke_test.py --through step1
+```
+
+- 若只想先验证后端创建项目与基础数据链路，可执行：
+
+```powershell
+python scripts/pipeline_smoke_test.py --through project
+```
+
+- 以上两个脚本都支持：
+  `--prefix` 自定义测试项目名前缀
+  `--cleanup` 测试结束后自动删除测试项目
+  `--keep-project` 即使带了 `--cleanup` 也保留测试项目
+
+- 如果想按前缀批量清理历史测试项目，可执行：
+
+```powershell
+python scripts/cleanup_test_projects.py --dry-run
+python scripts/cleanup_test_projects.py --prefix smoke --prefix pipeline-smoke
 ```
 
 ### 前端开发启动（PowerShell）
