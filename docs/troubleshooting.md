@@ -3,10 +3,11 @@
 ## 后端无法启动
 
 - 检查是否已执行 `pip install -r requirements.txt`
-- 检查 `.env` 是否存在
+- 检查 `backend/.env` 是否存在
 - 检查当前目录是否为 `backend/`
 - 如果是 Python `3.14` 环境，`pydantic-core` 可能出现编译兼容问题，优先改用 `Python 3.11/3.12/3.13`
 - 如果是旧库升级上来的 SQLite，首次启动会自动补齐 `projects.preferences_json` 列；若启动时数据库被其他进程占用，先关闭旧后端再重试
+- `storage/` 目录现在会在启动时自动创建；若你手动改过 `MEDIA_ROOT`，确认该目录对当前进程可写
 
 ## 前端无法启动
 
@@ -26,8 +27,22 @@
 ## 后续接入 Ollama/ComfyUI 后常见问题
 
 - 输出不是 JSON：先检查 Prompt，再检查解析器
-- Comfy 任务无输出：先检查 workflow title，再查 `/history`
+- Comfy 任务无输出：先检查 `COMFYUI_CHECKPOINT`、工作流节点，再查 `/history`
 - 视频无法生成：先确认是否已有锁定首帧
+
+## Step 1 剧本拆解失败
+
+- 若提示无法连接 `Ollama`，确认本机已启动 `ollama serve`，并检查 `OLLAMA_BASE_URL`
+- 若提示模型接口异常，确认 `OLLAMA_MODEL` 已存在，可先执行 `ollama list`
+- 若提示调用超时，优先检查模型是否首次加载，必要时调大 `OLLAMA_TIMEOUT_SEC`
+- 若返回内容不是 JSON，先尝试换更稳定的本地模型，再重试拆解
+
+## Step 3 首帧生成失败
+
+- 若提示未配置 `COMFYUI_CHECKPOINT`，先在 `backend/.env` 中补齐
+- 若提示无法连接 `ComfyUI`，确认本机已启动 Web 服务并检查 `COMFYUI_BASE_URL`
+- 若提示等待 `ComfyUI` 响应超时，先确认模型是否仍在加载，或当前出图队列是否阻塞
+- 若提示接口返回异常，先检查 ComfyUI 工作流节点、checkpoint 名称和 LoRA 文件是否存在
 
 ## Step 4 视频生成失败
 

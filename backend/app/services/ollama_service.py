@@ -79,17 +79,30 @@ class OllamaService:
 
     async def parse_script(self, raw_script_text: str) -> dict[str, Any]:
         prompt = self.build_prompt(raw_script_text)
-        async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_SEC) as client:
-            response = await client.post(
-                f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/generate",
-                json={
-                    "model": settings.OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_SEC) as client:
+                response = await client.post(
+                    f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/generate",
+                    json={
+                        "model": settings.OLLAMA_MODEL,
+                        "prompt": prompt,
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"无法连接 Ollama 服务，请确认已启动并检查 OLLAMA_BASE_URL={settings.OLLAMA_BASE_URL}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(
+                f"Ollama 调用超时，请检查模型是否已就绪或适当调大 OLLAMA_TIMEOUT_SEC={settings.OLLAMA_TIMEOUT_SEC}"
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"Ollama 接口返回异常 HTTP {exc.response.status_code}，请检查 OLLAMA_MODEL={settings.OLLAMA_MODEL}"
+            ) from exc
 
         raw_text = payload.get("response", "")
         json_text = self._repair_json(self._extract_json_text(raw_text))
