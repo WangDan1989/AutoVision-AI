@@ -137,6 +137,15 @@ function defaultSubtitleText(segment: any) {
   return [segment.dialogue_text || "", segment.narration_text || ""].filter(Boolean).join("\n");
 }
 
+function defaultAudioText(segment: any) {
+  return (
+    segment.dialogue_text ||
+    segment.narration_text ||
+    segment.visual_desc ||
+    ""
+  );
+}
+
 function formatSeconds(seconds: number) {
   const safeValue = Math.max(Number(seconds || 0), 0);
   return `${safeValue.toFixed(1)}s`;
@@ -369,12 +378,12 @@ function defaultVideoPayload() {
   };
 }
 
-function defaultAudioPayload() {
+function defaultAudioPayload(segment: any) {
   const media = defaultMediaPrefs();
   return {
     track_type: media.audio_track_type || "NARRATION",
     voice_profile: media.audio_voice_profile || "",
-    text_content: "",
+    text_content: defaultAudioText(segment),
   };
 }
 
@@ -484,7 +493,7 @@ async function handleQuickRunPipeline() {
 
     for (const segment of missingAudioItems) {
       try {
-        await generateAudio(segment.id, defaultAudioPayload());
+        await generateAudio(segment.id, defaultAudioPayload(segment));
         quickRunProgress.value.success += 1;
       } catch (error) {
         quickRunProgress.value.failed += 1;
