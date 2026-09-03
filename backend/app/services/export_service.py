@@ -85,6 +85,18 @@ class ExportService:
             lines.append("")
         srt_path.write_text("\n".join(lines), encoding="utf-8")
 
+    def _subtitle_overrides(self, req: GenerateExportRequest) -> dict[str, dict]:
+        overrides: dict[str, dict] = {}
+        for item in req.subtitle_items:
+            if item.end_sec < item.start_sec:
+                raise ValueError("字幕结束时间不能早于开始时间")
+            overrides[item.segment_id] = {
+                "start_sec": float(item.start_sec),
+                "end_sec": float(item.end_sec),
+                "text": item.text,
+            }
+        return overrides
+
     def _build_transition_video(
         self,
         ffmpeg_bin: str,
@@ -139,6 +151,7 @@ class ExportService:
                 raise ValueError("当前项目还没有分镜，无法导出")
 
             transition_sec = max(float(settings.EXPORT_TRANSITION_SEC), 0.0) if req.transition_enabled else 0.0
+            subtitle_overrides = self._subtitle_overrides(req)
             clip_items: list[dict] = []
             timeline_tracks: list[tuple[str, float]] = []
             subtitle_items: list[dict] = []
@@ -165,12 +178,21 @@ class ExportService:
                 if track and track.audio_path:
                     timeline_tracks.append((track.audio_path, clip_start))
                 subtitle_text = self._subtitle_text(segment)
+                subtitle_override = subtitle_overrides.get(segment.id)
+                subtitle_start = clip_start
+                subtitle_end = clip_end
+                if subtitle_override:
+                    subtitle_text = str(subtitle_override.get("text") or "")
+                    subtitle_start = float(subtitle_override.get("start_sec", clip_start))
+                    subtitle_end = float(subtitle_override.get("end_sec", clip_end))
+                    if subtitle_end < subtitle_start:
+                        raise ValueError(f"分镜 #{segment.seq_no} 的字幕结束时间不能早于开始时间")
                 if subtitle_text:
                     subtitle_items.append(
                         {
                             "segment_id": segment.id,
-                            "start_sec": clip_start,
-                            "end_sec": clip_end,
+                            "start_sec": subtitle_start,
+                            "end_sec": subtitle_end,
                             "text": subtitle_text,
                         }
                     )
@@ -183,6 +205,8 @@ class ExportService:
                         "start_sec": round(clip_start, 3),
                         "end_sec": round(clip_end, 3),
                         "subtitle_text": subtitle_text,
+                        "subtitle_start_sec": round(subtitle_start, 3) if subtitle_text else 0.0,
+                        "subtitle_end_sec": round(subtitle_end, 3) if subtitle_text else 0.0,
                     }
                 )
                 current_offset += clip_duration - transition_sec if transition_sec > 0 else clip_duration
