@@ -39,13 +39,24 @@ class TTSService:
         )
 
     async def _generate_with_http(self, text: str, output_path: Path, voice: str) -> None:
-        async with httpx.AsyncClient(timeout=180) as client:
-            response = await client.post(
-                settings.TTS_BASE_URL,
-                json={"text": text, "voice": voice},
-            )
-            response.raise_for_status()
-            output_path.write_bytes(response.content)
+        try:
+            async with httpx.AsyncClient(timeout=180) as client:
+                response = await client.post(
+                    settings.TTS_BASE_URL,
+                    json={"text": text, "voice": voice},
+                )
+                response.raise_for_status()
+                output_path.write_bytes(response.content)
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"无法连接 HTTP TTS 服务，请确认已启动并检查 TTS_BASE_URL={settings.TTS_BASE_URL}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise RuntimeError("HTTP TTS 调用超时，请检查服务负载或网络状态") from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"HTTP TTS 接口返回异常 HTTP {exc.response.status_code}，请检查服务入参与鉴权配置"
+            ) from exc
 
     async def _generate_with_edge_tts(self, text: str, output_path: Path, voice: str) -> None:
         command = [
@@ -60,7 +71,7 @@ class TTSService:
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
         if completed.returncode != 0:
             stderr = (completed.stderr or completed.stdout or "").strip()
-            raise RuntimeError(f"edge-tts 生成音频失败: {stderr or 'unknown error'}")
+            raise RuntimeError(f"edge-tts 生成音频失败，请检查网络、voice 配置或 edge-tts 安装状态: {stderr or 'unknown error'}")
 
     async def generate_segment_audio(self, segment: ScriptSegment, req: GenerateAudioRequest) -> AudioTrack:
         text = self._resolve_text(segment, req)

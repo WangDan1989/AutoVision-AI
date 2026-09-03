@@ -63,6 +63,9 @@ class VideoService:
             )
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
+            if not Path(frame.image_path).exists():
+                raise ValueError("锁定首帧文件不存在，请回到 Step 3 重新生成并锁定首帧")
+
             zoompan = (
                 f"scale={req.width}:{req.height},"
                 f"zoompan=z='min(zoom+0.0015,1.08)':"
@@ -121,6 +124,10 @@ class VideoService:
             self.task_log.complete(task, result_json=f'{{"video_clip_id":"{clip.id}"}}')
             return clip
         except Exception as exc:
+            if isinstance(exc, RuntimeError) and str(exc).startswith("未找到可执行文件："):
+                raise RuntimeError(
+                    f"未找到 FFmpeg 可执行文件，请检查 FFMPEG_BIN={settings.FFMPEG_BIN} 或确认 ffmpeg 已加入 PATH"
+                ) from exc
             self.task_log.fail(task, str(exc), "VIDEO_RENDER_FAILED")
             raise
 

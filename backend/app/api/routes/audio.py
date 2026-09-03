@@ -25,6 +25,8 @@ async def generate_audio(segment_id: str, req: GenerateAudioRequest, db: Session
         raise HTTPException(status_code=404, detail="segment not found")
     try:
         track = await TTSService(db).generate_segment_audio(segment, req)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiResponse(request_id=track.id, data={"audio_track_id": track.id, "audio_path": track.audio_path})

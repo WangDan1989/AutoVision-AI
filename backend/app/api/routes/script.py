@@ -25,6 +25,8 @@ async def parse_script(project_id: str, req: ParseScriptRequest, db: Session = D
         raise HTTPException(status_code=404, detail="project not found")
     try:
         result = await ScriptService(db).parse_and_save(project, req.raw_script_text)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiResponse(request_id=project_id, data=result)
