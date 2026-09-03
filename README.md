@@ -66,6 +66,12 @@ python scripts/check_runtime.py
 python scripts/smoke_test.py
 ```
 
+- 如需自动回收测试项目，可附加：
+
+```bash
+python scripts/smoke_test.py --cleanup
+```
+
 - 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
 
 ```bash
@@ -83,6 +89,11 @@ python scripts/pipeline_smoke_test.py --through step1
 ```bash
 python scripts/pipeline_smoke_test.py --through project
 ```
+
+- 以上两个脚本都支持：
+  `--prefix` 自定义测试项目名前缀
+  `--cleanup` 测试结束后自动删除测试项目
+  `--keep-project` 即使带了 `--cleanup` 也保留测试项目
 
 ## Linux / macOS 前端启动
 
@@ -118,6 +129,12 @@ python scripts/check_runtime.py
 python scripts/smoke_test.py
 ```
 
+- 如需自动回收测试项目，可附加：
+
+```powershell
+python scripts/smoke_test.py --cleanup
+```
+
 - 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
 
 ```powershell
@@ -135,6 +152,11 @@ python scripts/pipeline_smoke_test.py --through step1
 ```powershell
 python scripts/pipeline_smoke_test.py --through project
 ```
+
+- 以上两个脚本都支持：
+  `--prefix` 自定义测试项目名前缀
+  `--cleanup` 测试结束后自动删除测试项目
+  `--keep-project` 即使带了 `--cleanup` 也保留测试项目
 
 ### 前端开发启动（PowerShell）
 

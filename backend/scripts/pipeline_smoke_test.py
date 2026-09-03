@@ -69,7 +69,18 @@ def latest_item(items: list[dict], key: str = "updated_at") -> dict | None:
     return sorted(items, key=lambda item: str(item.get(key) or ""), reverse=True)[0]
 
 
-def run(base_url: str, through: str, script_text: str) -> int:
+def try_cleanup_project(base_url: str, project_id: str) -> None:
+    if not project_id:
+        return
+    status, payload = request_json_allow_error("DELETE", f"{base_url}/api/projects/{project_id}")
+    if status == 200 and payload.get("code") == 0:
+        deleted_files = payload.get("data", {}).get("deleted_files", 0)
+        print_ok("清理测试项目", f"已删除 {project_id}，清理文件数 {deleted_files}")
+    else:
+        print_fail("清理测试项目", f"删除 {project_id} 失败: HTTP {status} - {payload}")
+
+
+def run(base_url: str, through: str, script_text: str, prefix: str, cleanup: bool) -> int:
     print(f"目标服务: {base_url}")
     print(f"目标阶段: {through}")
     project_id = ""
@@ -81,7 +92,7 @@ def run(base_url: str, through: str, script_text: str) -> int:
             raise RuntimeError(f"健康检查失败: HTTP {status} - {payload}")
         print_ok("健康检查", "/healthz 返回 ok=true")
 
-        project_name = f"pipeline-smoke-{int(time.time())}"
+        project_name = f"{prefix}-{int(time.time())}"
         status, payload = request_json_allow_error(
             "POST",
             f"{base_url}/api/projects",
@@ -219,6 +230,9 @@ def run(base_url: str, through: str, script_text: str) -> int:
             print(f"已创建测试项目: {project_id}")
         print("\n结论: 最小真实流水线 smoke test 未通过，请先修复当前阶段的阻断项。")
         return 1
+    finally:
+        if cleanup and project_id:
+            try_cleanup_project(base_url, project_id)
 
 
 def main() -> int:
@@ -235,8 +249,18 @@ def main() -> int:
         default=DEFAULT_SCRIPT_TEXT,
         help="Step 1 使用的测试剧本文本",
     )
+    parser.add_argument("--prefix", default="pipeline-smoke", help="测试项目名前缀，默认 pipeline-smoke")
+    parser.add_argument("--cleanup", action="store_true", help="测试结束后自动删除测试项目")
+    parser.add_argument("--keep-project", action="store_true", help="即使指定 --cleanup 也保留测试项目")
     args = parser.parse_args()
-    return run(args.base_url.rstrip("/"), args.through, args.script_text)
+    cleanup = bool(args.cleanup and not args.keep_project)
+    return run(
+        args.base_url.rstrip("/"),
+        args.through,
+        args.script_text,
+        args.prefix.strip() or "pipeline-smoke",
+        cleanup,
+    )
 
 
 if __name__ == "__main__":
