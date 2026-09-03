@@ -3,6 +3,7 @@
 ## 后端无法启动
 
 - 可先执行 `python scripts/check_runtime.py` 做运行前自检
+- 若后端能启动但真实依赖仍不确定，可执行 `python scripts/service_smoke_test.py`
 - 后端启动后可再执行 `python scripts/smoke_test.py`，确认最小 HTTP 接口链路是否正常
 - 检查是否已执行 `pip install -r requirements.txt`
 - 检查 `backend/.env` 是否存在
@@ -29,6 +30,7 @@
 ## 后续接入 Ollama/ComfyUI 后常见问题
 
 - 可先执行 `python scripts/check_runtime.py`，一次性检查 `.env`、Python 版本、FFmpeg、edge-tts、Ollama、ComfyUI`
+- 可再执行 `python scripts/service_smoke_test.py`，单独确认 Ollama、ComfyUI、TTS、FFmpeg 的真实能力是否满足开跑条件
 - 输出不是 JSON：先检查 Prompt，再检查解析器
 - Comfy 任务无输出：先检查 `COMFYUI_CHECKPOINT`、工作流节点，再查 `/history`
 - 视频无法生成：先确认是否已有锁定首帧

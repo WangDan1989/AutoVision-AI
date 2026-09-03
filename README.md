@@ -66,6 +66,12 @@ python scripts/check_runtime.py
 python scripts/smoke_test.py
 ```
 
+- 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
+
+```bash
+python scripts/service_smoke_test.py
+```
+
 ## Linux / macOS 前端启动
 
 ```bash
@@ -98,6 +104,12 @@ python scripts/check_runtime.py
 
 ```powershell
 python scripts/smoke_test.py
+```
+
+- 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
+
+```powershell
+python scripts/service_smoke_test.py
 ```
 
 ### 前端开发启动（PowerShell）

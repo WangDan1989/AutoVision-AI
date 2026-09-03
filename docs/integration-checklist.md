@@ -3,6 +3,7 @@
 ## 基础连通
 
 - [ ] `python scripts/check_runtime.py` 无阻断 FAIL
+- [ ] `python scripts/service_smoke_test.py` 无阻断 FAIL
 - [x] `backend` 可正常启动
 - [ ] `python scripts/smoke_test.py` 通过
 - [ ] `frontend` 可正常启动
