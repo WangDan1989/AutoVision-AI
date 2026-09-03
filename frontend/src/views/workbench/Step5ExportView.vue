@@ -97,6 +97,90 @@ const sortedSubtitleItems = computed(() =>
   [...form.subtitle_items].sort((a, b) => Number(a.start_sec || 0) - Number(b.start_sec || 0)),
 );
 
+const missingVideoSegments = computed(() =>
+  props.segments.filter((segment) => !latestVideo(segment.id)),
+);
+
+const emptySubtitleItems = computed(() =>
+  form.subtitle_enabled
+    ? form.subtitle_items.filter((item) => !String(item.text || "").trim())
+    : [],
+);
+
+const reversedSubtitleItems = computed(() =>
+  form.subtitle_items.filter((item) => Number(item.end_sec || 0) < Number(item.start_sec || 0)),
+);
+
+const overlapPairs = computed(() => {
+  const pairs: Array<{
+    currentId: string;
+    nextId: string;
+    currentLabel: string;
+    nextLabel: string;
+  }> = [];
+  for (let index = 0; index < sortedSubtitleItems.value.length - 1; index += 1) {
+    const current = sortedSubtitleItems.value[index];
+    const next = sortedSubtitleItems.value[index + 1];
+    if (Number(next.start_sec || 0) < Number(current.end_sec || 0)) {
+      pairs.push({
+        currentId: current.segment_id,
+        nextId: next.segment_id,
+        currentLabel: `#${current.seq_no} ${current.scene_name}`,
+        nextLabel: `#${next.seq_no} ${next.scene_name}`,
+      });
+    }
+  }
+  return pairs;
+});
+
+const issueMap = computed(() => {
+  const map = new Map<string, string[]>();
+  for (const item of emptySubtitleItems.value) {
+    map.set(item.segment_id, [...(map.get(item.segment_id) || []), "字幕为空"]);
+  }
+  for (const item of reversedSubtitleItems.value) {
+    map.set(item.segment_id, [...(map.get(item.segment_id) || []), "结束时间早于开始时间"]);
+  }
+  for (const pair of overlapPairs.value) {
+    map.set(pair.currentId, [...(map.get(pair.currentId) || []), "与下一条字幕时间重叠"]);
+    map.set(pair.nextId, [...(map.get(pair.nextId) || []), "与上一条字幕时间重叠"]);
+  }
+  return map;
+});
+
+const precheckItems = computed(() => {
+  const checks: Array<{ level: "error" | "warning"; text: string }> = [];
+  for (const segment of missingVideoSegments.value) {
+    checks.push({
+      level: "error",
+      text: `分镜 #${segment.seq_no} ${segment.scene_name || "未命名场景"} 缺少视频片段`,
+    });
+  }
+  for (const item of emptySubtitleItems.value) {
+    checks.push({
+      level: "error",
+      text: `分镜 #${item.seq_no} ${item.scene_name} 的字幕文本为空`,
+    });
+  }
+  for (const item of reversedSubtitleItems.value) {
+    checks.push({
+      level: "error",
+      text: `分镜 #${item.seq_no} ${item.scene_name} 的字幕结束时间早于开始时间`,
+    });
+  }
+  for (const pair of overlapPairs.value) {
+    checks.push({
+      level: "warning",
+      text: `${pair.currentLabel} 与 ${pair.nextLabel} 的字幕时间重叠`,
+    });
+  }
+  return checks;
+});
+
+const blockingPrecheckItems = computed(() =>
+  precheckItems.value.filter((item) => item.level === "error"),
+);
+
 const totalPreviewDuration = computed(() =>
   sortedSubtitleItems.value.reduce((maxValue, item) => Math.max(maxValue, Number(item.end_sec || 0)), 0),
 );
@@ -131,7 +215,15 @@ function resetSubtitleText() {
   toast.success("字幕文本已恢复为自动生成内容");
 }
 
+function issuesOf(segmentId: string) {
+  return issueMap.value.get(segmentId) || [];
+}
+
 async function handleExport() {
+  if (blockingPrecheckItems.value.length) {
+    toast.error("请先修复导出预检中的错误项");
+    return;
+  }
   const invalidItem = form.subtitle_items.find((item) => Number(item.end_sec || 0) < Number(item.start_sec || 0));
   if (invalidItem) {
     toast.error(`分镜 #${invalidItem.seq_no} 的字幕结束时间不能早于开始时间`);
@@ -166,7 +258,9 @@ async function handleExport() {
         <h2>Step 5 合成导出</h2>
         <p>已具备视频分镜：{{ readyCount }}/{{ segments.length }}</p>
       </div>
-      <button :disabled="submitting || !segments.length || readyCount < segments.length" @click="handleExport">开始导出</button>
+      <button :disabled="submitting || !segments.length || readyCount < segments.length || blockingPrecheckItems.length > 0" @click="handleExport">
+        开始导出
+      </button>
     </div>
 
     <div class="form-grid">
@@ -185,10 +279,38 @@ async function handleExport() {
       <button type="button" @click="resetSubtitleText">恢复默认字幕</button>
     </div>
 
+    <section class="precheck-card">
+      <div class="toolbar toolbar-between">
+        <strong>导出预检</strong>
+        <span>{{ precheckItems.length ? `发现 ${precheckItems.length} 项问题` : "未发现问题" }}</span>
+      </div>
+      <div v-if="precheckItems.length" class="precheck-list">
+        <p
+          v-for="(item, index) in precheckItems"
+          :key="`${item.level}-${index}`"
+          class="precheck-item"
+          :class="item.level === 'error' ? 'precheck-error' : 'precheck-warning'"
+        >
+          {{ item.text }}
+        </p>
+      </div>
+      <p v-else class="precheck-ok">当前导出参数可直接提交。</p>
+    </section>
+
     <div class="list-grid timeline-grid" v-if="form.subtitle_items.length">
-      <article v-for="item in form.subtitle_items" :key="item.segment_id" class="item-card">
+      <article
+        v-for="item in form.subtitle_items"
+        :key="item.segment_id"
+        class="item-card"
+        :class="{ 'item-card-error': issuesOf(item.segment_id).length > 0 }"
+      >
         <strong>#{{ item.seq_no }} {{ item.scene_name }}</strong>
         <p>当前片段默认时间：{{ formatSeconds(item.start_sec) }} - {{ formatSeconds(item.end_sec) }}</p>
+        <div v-if="issuesOf(item.segment_id).length" class="inline-issue-list">
+          <p v-for="issue in issuesOf(item.segment_id)" :key="issue" class="inline-issue-item">
+            {{ issue }}
+          </p>
+        </div>
         <label class="field">
           <span>字幕文本</span>
           <textarea v-model="item.text" class="text-area" rows="4" placeholder="可手动修改导出字幕内容" />
