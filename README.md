@@ -60,6 +60,12 @@ bash scripts/dev.sh
 python scripts/check_runtime.py
 ```
 
+- 后端启动后可再执行最小接口冒烟测试：
+
+```bash
+python scripts/smoke_test.py
+```
+
 ## Linux / macOS 前端启动
 
 ```bash
@@ -86,6 +92,12 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ```powershell
 python scripts/check_runtime.py
+```
+
+- 后端启动后可再执行最小接口冒烟测试：
+
+```powershell
+python scripts/smoke_test.py
 ```
 
 ### 前端开发启动（PowerShell）

@@ -3,6 +3,7 @@
 ## 后端无法启动
 
 - 可先执行 `python scripts/check_runtime.py` 做运行前自检
+- 后端启动后可再执行 `python scripts/smoke_test.py`，确认最小 HTTP 接口链路是否正常
 - 检查是否已执行 `pip install -r requirements.txt`
 - 检查 `backend/.env` 是否存在
 - 检查当前目录是否为 `backend/`

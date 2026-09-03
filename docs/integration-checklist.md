@@ -4,6 +4,7 @@
 
 - [ ] `python scripts/check_runtime.py` 无阻断 FAIL
 - [x] `backend` 可正常启动
+- [ ] `python scripts/smoke_test.py` 通过
 - [ ] `frontend` 可正常启动
 - [x] `GET /healthz` 返回 `ok`
 - [ ] `/media/...` 能访问静态资源
