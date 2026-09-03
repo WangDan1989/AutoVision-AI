@@ -75,8 +75,11 @@ npm run build
 ### Windows 使用说明
 
 - 如果 PowerShell 禁止执行脚本，可先运行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
 - 如果 `python` 命令不可用，可改用 `py`
+
 - 后端在 Windows 下不依赖 `bash scripts/*.sh`，直接使用上面的 PowerShell 命令即可
+
 - 如果需要正式导出成片，请提前安装并配置好 `FFmpeg`，并确保 `ffmpeg` 已加入 `PATH`
 
 ## 当前已落地的骨架能力
@@ -102,3 +105,4 @@ npm run build
 - 再把 `frontend/src/views/workbench` 中的占位页面接到真实 API
 
 - 最后补齐 `ComfyUI / Ollama / FFmpeg / TTS` 的真实 adapter
+
