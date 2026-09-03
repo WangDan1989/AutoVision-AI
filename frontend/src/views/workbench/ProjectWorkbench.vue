@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import AppToastContainer from "../../components/common/AppToastContainer.vue";
 import TaskErrorList from "../../components/tasks/TaskErrorList.vue";
@@ -13,6 +13,7 @@ import Step4MediaView from "./Step4MediaView.vue";
 import Step5ExportView from "./Step5ExportView.vue";
 
 const route = useRoute();
+const router = useRouter();
 const store = useProjectWorkbenchStore();
 const projectId = computed(() => String(route.params.projectId || "demo"));
 const activeStep = ref(1);
@@ -34,6 +35,9 @@ onMounted(async () => {
       <div>
         <h1>AutoVision-AI 工作台</h1>
         <p v-if="store.project">项目：{{ store.project.name }}</p>
+      </div>
+      <div class="toolbar">
+        <button @click="router.push('/projects')">返回项目中心</button>
       </div>
     </header>
 
