@@ -40,6 +40,15 @@ export const useProjectWorkbenchStore = defineStore("projectWorkbench", () => {
     }
   }
 
+  function applyProjectPreferences(preferences: any, updatedAt?: string) {
+    if (!project.value) return;
+    project.value = {
+      ...project.value,
+      preferences,
+      updated_at: updatedAt || project.value.updated_at,
+    };
+  }
+
   return {
     project,
     tasks,
@@ -51,5 +60,6 @@ export const useProjectWorkbenchStore = defineStore("projectWorkbench", () => {
     exportsList,
     loading,
     refresh,
+    applyProjectPreferences,
   };
 });

@@ -9,9 +9,7 @@ export function getProject(projectId: string) {
 }
 
 export function updateProjectPreferences(projectId: string, preferences: any) {
-  return api.patch(`/api/projects/${projectId}/preferences`, {
-    preferences,
-  });
+  return api.patch(`/api/projects/${projectId}/preferences`, preferences);
 }
 
 export function getTasks(projectId?: string) {

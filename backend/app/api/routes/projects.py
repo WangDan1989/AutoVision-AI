@@ -89,7 +89,10 @@ def update_project_preferences(
         raise HTTPException(status_code=404, detail="project not found")
 
     service = ProjectService(db)
-    updated = service.update_preferences(project, req.preferences.model_dump())
+    updated = service.update_preferences(
+        project,
+        req.model_dump(exclude_none=True),
+    )
     return ApiResponse(
         request_id=project_id,
         data={

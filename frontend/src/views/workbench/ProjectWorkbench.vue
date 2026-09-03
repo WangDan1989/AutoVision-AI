@@ -71,6 +71,7 @@ onMounted(async () => {
       :project-id="projectId"
       :project="store.project"
       :segments="store.segments"
+      :frames="store.frames"
       :videos="store.videos"
       :audio-tracks="store.audioTracks"
       :exports-list="store.exportsList"

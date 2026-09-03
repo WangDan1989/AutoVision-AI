@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 
 import { generateFrame, lockFrame, updateProjectPreferences } from "../../api/projectWorkbench";
+import { useProjectWorkbenchStore } from "../../stores/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
@@ -17,12 +18,14 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToastStore();
+const workbenchStore = useProjectWorkbenchStore();
 const form = reactive({
   prompt_override: "",
   negative_prompt_override: "",
   width: 1280,
   height: 720,
 });
+const saveState = ref<"idle" | "saving" | "saved" | "error">("idle");
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -53,6 +56,7 @@ watch(
     form.width = Number(value?.width || props.project?.target_width || 1280);
     form.height = Number(value?.height || props.project?.target_height || 720);
     hydrating = false;
+    saveState.value = "idle";
   },
   { immediate: true, deep: true },
 );
@@ -63,14 +67,19 @@ watch(
     if (hydrating || !props.project) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
+      saveState.value = "saving";
       try {
-        await updateProjectPreferences(props.projectId, {
+        const response = await updateProjectPreferences(props.projectId, {
           storyboard: { ...form },
-          media: defaultMediaPrefs(),
-          export: defaultExportPrefs(),
         });
-      } catch {
-        // keep local form usable even if persistence fails
+        workbenchStore.applyProjectPreferences(
+          response.data.data.preferences,
+          response.data.data.updated_at,
+        );
+        saveState.value = "saved";
+      } catch (error) {
+        saveState.value = "error";
+        toast.error(getErrorMessage(error, "Step 3 参数自动保存失败"));
       }
     }, 400);
   },
@@ -81,6 +90,16 @@ function latestFrame(segmentId: string) {
   return props.frames
     .filter((item) => item.segment_id === segmentId)
     .sort((a, b) => Number(b.version_no || 0) - Number(a.version_no || 0))[0];
+}
+
+function lockedFrame(segmentId: string) {
+  return props.frames
+    .filter((item) => item.segment_id === segmentId && item.is_locked)
+    .sort((a, b) => Number(b.version_no || 0) - Number(a.version_no || 0))[0];
+}
+
+function displayFrame(segmentId: string) {
+  return lockedFrame(segmentId) || latestFrame(segmentId);
 }
 
 async function handleGenerate(segmentId: string) {
@@ -112,6 +131,17 @@ async function handleLock(frameId: string) {
 <template>
   <section class="step-view">
     <h2>Step 3 九宫格与首帧锁定</h2>
+    <p class="save-status" :class="`save-status-${saveState}`">
+      {{
+        saveState === "saving"
+          ? "项目参数保存中..."
+          : saveState === "saved"
+            ? "项目参数已保存"
+            : saveState === "error"
+              ? "项目参数保存失败，请检查后端连接"
+              : "修改后会自动保存为项目默认参数"
+      }}
+    </p>
 
     <div class="form-grid">
       <label class="field">
@@ -138,13 +168,14 @@ async function handleLock(frameId: string) {
         <p>{{ segment.visual_desc }}</p>
 
         <img
-          v-if="latestFrame(segment.id)?.image_url"
-          :src="`http://127.0.0.1:8000${latestFrame(segment.id).image_url}`"
+          v-if="displayFrame(segment.id)?.image_url"
+          :src="`http://127.0.0.1:8000${displayFrame(segment.id).image_url}`"
           class="preview-image"
           alt="frame"
         />
 
-        <p v-if="latestFrame(segment.id)">状态：{{ latestFrame(segment.id).is_locked ? "已锁定" : "未锁定" }}</p>
+        <p v-if="lockedFrame(segment.id)">状态：已锁定（显示锁定版本）</p>
+        <p v-else-if="latestFrame(segment.id)">状态：未锁定（显示最新版本）</p>
 
         <div class="toolbar">
           <button @click="handleGenerate(segment.id)">生成首帧</button>

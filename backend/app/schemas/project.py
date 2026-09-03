@@ -40,4 +40,6 @@ class ProjectPreferences(BaseModel):
 
 
 class UpdateProjectPreferencesRequest(BaseModel):
-    preferences: ProjectPreferences
+    storyboard: StoryboardPreferences | None = None
+    media: MediaPreferences | None = None
+    export: ExportPreferences | None = None

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive, computed, ref, watch } from "vue";
+import { reactive, computed, nextTick, ref, watch } from "vue";
 
 import { generateAudio, generateExport, generateVideo, updateProjectPreferences } from "../../api/projectWorkbench";
+import { useProjectWorkbenchStore } from "../../stores/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
@@ -9,6 +10,7 @@ const props = defineProps<{
   projectId: string;
   project: any;
   segments: any[];
+  frames: any[];
   videos: any[];
   audioTracks: any[];
   exportsList: any[];
@@ -19,11 +21,13 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToastStore();
+const workbenchStore = useProjectWorkbenchStore();
 const submitting = ref(false);
 const previewTime = ref(0);
 const quickRunRunning = ref(false);
 const quickRunProgress = ref({ phase: "idle", done: 0, total: 0, success: 0, failed: 0 });
 const quickRunFailures = ref<Array<{ label: string; message: string }>>([]);
+const saveState = ref<"idle" | "saving" | "saved" | "error">("idle");
 const DEFAULT_TRANSITION_SEC = 0.35;
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -39,15 +43,6 @@ const form = reactive({
     text: string;
   }>,
 });
-
-function defaultStoryboardPrefs() {
-  return props.project?.preferences?.storyboard || {
-    prompt_override: "",
-    negative_prompt_override: "",
-    width: props.project?.target_width || 1280,
-    height: props.project?.target_height || 720,
-  };
-}
 
 function defaultMediaPrefs() {
   return props.project?.preferences?.media || {
@@ -67,6 +62,7 @@ watch(
     form.subtitle_enabled = value?.subtitle_enabled ?? true;
     form.transition_enabled = value?.transition_enabled ?? true;
     hydrating = false;
+    saveState.value = "idle";
   },
   { immediate: true, deep: true },
 );
@@ -78,20 +74,35 @@ watch(
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try {
-        await updateProjectPreferences(props.projectId, {
-          storyboard: defaultStoryboardPrefs(),
-          media: defaultMediaPrefs(),
+        saveState.value = "saving";
+        const response = await updateProjectPreferences(props.projectId, {
           export: {
             subtitle_enabled: form.subtitle_enabled,
             transition_enabled: form.transition_enabled,
           },
         });
-      } catch {
-        // keep local form usable even if persistence fails
+        workbenchStore.applyProjectPreferences(
+          response.data.data.preferences,
+          response.data.data.updated_at,
+        );
+        saveState.value = "saved";
+      } catch (error) {
+        saveState.value = "error";
+        toast.error(getErrorMessage(error, "Step 5 导出参数自动保存失败"));
       }
     }, 400);
   },
 );
+
+function segmentTitle(segment: any) {
+  return `#${segment.seq_no} ${segment.scene_name || "未命名场景"}`;
+}
+
+function latestLockedFrame(segmentId: string) {
+  return props.frames
+    .filter((item) => item.segment_id === segmentId && item.is_locked)
+    .sort((a, b) => Number(b.version_no || 0) - Number(a.version_no || 0))[0];
+}
 
 function latestVideo(segmentId: string) {
   return props.videos
@@ -102,7 +113,7 @@ function latestVideo(segmentId: string) {
 function segmentLabel(segmentId: string) {
   const segment = props.segments.find((item) => item.id === segmentId);
   if (!segment) return segmentId;
-  return `#${segment.seq_no} ${segment.scene_name || "未命名场景"}`;
+  return segmentTitle(segment);
 }
 
 function formatTimeRange(startSec: number, endSec: number) {
@@ -423,79 +434,105 @@ async function handleQuickRunPipeline() {
     return;
   }
 
+  const missingVideoItems = props.segments.filter((segment) => !latestVideo(segment.id));
+  const unlockedSegments = missingVideoItems.filter((segment) => !latestLockedFrame(segment.id));
+  if (unlockedSegments.length) {
+    quickRunProgress.value = { phase: "idle", done: 0, total: 0, success: 0, failed: 0 };
+    quickRunFailures.value = unlockedSegments.map((segment) => ({
+      label: `视频 ${segmentTitle(segment)}`,
+      message: "缺少已锁定首帧，无法直接补齐视频",
+    }));
+    toast.error("存在未锁定首帧的分镜，请先在 Step 3 锁定首帧后再执行快捷流程");
+    return;
+  }
+
   quickRunRunning.value = true;
   quickRunFailures.value = [];
 
-  const missingVideoItems = props.segments.filter((segment) => !latestVideo(segment.id));
-  quickRunProgress.value = {
-    phase: "补齐视频",
-    done: 0,
-    total: missingVideoItems.length,
-    success: 0,
-    failed: 0,
-  };
-
-  for (const segment of missingVideoItems) {
-    try {
-      await generateVideo(segment.id, defaultVideoPayload());
-      quickRunProgress.value.success += 1;
-    } catch (error) {
-      quickRunProgress.value.failed += 1;
-      quickRunFailures.value.push({
-        label: `视频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
-        message: getErrorMessage(error, "生成视频失败"),
-      });
-    } finally {
-      quickRunProgress.value.done += 1;
-    }
-  }
-
-  const missingAudioItems = props.segments.filter((segment) => !props.audioTracks.some((item) => item.segment_id === segment.id));
-  quickRunProgress.value = {
-    phase: "补齐音频",
-    done: 0,
-    total: missingAudioItems.length,
-    success: 0,
-    failed: quickRunProgress.value.failed,
-  };
-
-  for (const segment of missingAudioItems) {
-    try {
-      await generateAudio(segment.id, defaultAudioPayload());
-      quickRunProgress.value.success += 1;
-    } catch (error) {
-      quickRunProgress.value.failed += 1;
-      quickRunFailures.value.push({
-        label: `音频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
-        message: getErrorMessage(error, "生成音频失败"),
-      });
-    } finally {
-      quickRunProgress.value.done += 1;
-    }
-  }
-
-  quickRunProgress.value = {
-    phase: "导出成片",
-    done: 0,
-    total: 1,
-    success: 0,
-    failed: quickRunProgress.value.failed,
-  };
-
   try {
-    await generateExport(props.projectId, exportPayload());
-    quickRunProgress.value.success = 1;
-    quickRunProgress.value.done = 1;
-    toast.success("已完成补齐素材并导出");
-    emit("refresh");
-  } catch (error) {
-    quickRunProgress.value.failed += 1;
-    quickRunProgress.value.done = 1;
-    quickRunFailures.value.push({
-      label: "导出成片",
-      message: getErrorMessage(error, "导出失败"),
-    });
-    toast.error(getErrorMessage(error, "一键补齐并导出失败"));
+    quickRunProgress.value = {
+      phase: "补齐视频",
+      done: 0,
+      total: missingVideoItems.length,
+      success: 0,
+      failed: 0,
+    };
+
+    for (const segment of missingVideoItems) {
+      try {
+        await generateVideo(segment.id, defaultVideoPayload());
+        quickRunProgress.value.success += 1;
+      } catch (error) {
+        quickRunProgress.value.failed += 1;
+        quickRunFailures.value.push({
+          label: `视频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+          message: getErrorMessage(error, "生成视频失败"),
+        });
+      } finally {
+        quickRunProgress.value.done += 1;
+      }
+    }
+
+    const missingAudioItems = props.segments.filter((segment) => !props.audioTracks.some((item) => item.segment_id === segment.id));
+    quickRunProgress.value = {
+      phase: "补齐音频",
+      done: 0,
+      total: missingAudioItems.length,
+      success: 0,
+      failed: quickRunProgress.value.failed,
+    };
+
+    for (const segment of missingAudioItems) {
+      try {
+        await generateAudio(segment.id, defaultAudioPayload());
+        quickRunProgress.value.success += 1;
+      } catch (error) {
+        quickRunProgress.value.failed += 1;
+        quickRunFailures.value.push({
+          label: `音频 #${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+          message: getErrorMessage(error, "生成音频失败"),
+        });
+      } finally {
+        quickRunProgress.value.done += 1;
+      }
+    }
+
+    await workbenchStore.refresh(props.projectId);
+    await nextTick();
+    rebuildSubtitleItems();
+
+    if (blockingPrecheckItems.value.length) {
+      quickRunFailures.value.push({
+        label: "导出预检",
+        message: "补齐素材后仍存在导出错误项，请先修正字幕时间轴或缺失素材",
+      });
+      toast.error("补齐素材后仍存在导出预检错误，请先修正后再导出");
+      return;
+    }
+
+    quickRunProgress.value = {
+      phase: "导出成片",
+      done: 0,
+      total: 1,
+      success: 0,
+      failed: quickRunProgress.value.failed,
+    };
+
+    try {
+      await generateExport(props.projectId, exportPayload());
+      quickRunProgress.value.success = 1;
+      quickRunProgress.value.done = 1;
+      toast.success("已完成补齐素材并导出");
+      emit("refresh");
+    } catch (error) {
+      quickRunProgress.value.failed += 1;
+      quickRunProgress.value.done = 1;
+      quickRunFailures.value.push({
+        label: "导出成片",
+        message: getErrorMessage(error, "导出失败"),
+      });
+      toast.error(getErrorMessage(error, "一键补齐并导出失败"));
+    }
   } finally {
     quickRunRunning.value = false;
   }
@@ -513,6 +550,17 @@ async function handleQuickRunPipeline() {
         开始导出
       </button>
     </div>
+    <p class="save-status" :class="`save-status-${saveState}`">
+      {{
+        saveState === "saving"
+          ? "导出默认参数保存中..."
+          : saveState === "saved"
+            ? "导出默认参数已保存"
+            : saveState === "error"
+              ? "导出默认参数保存失败，请检查后端连接"
+              : "字幕和转场开关修改后会自动保存为项目默认参数"
+      }}
+    </p>
 
     <div class="quick-run-panel">
       <div class="toolbar">

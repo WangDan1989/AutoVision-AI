@@ -58,6 +58,27 @@ body {
   font-size: 14px;
 }
 
+.save-status {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.save-status-idle {
+  color: #4a5568;
+}
+
+.save-status-saving {
+  color: #2c5282;
+}
+
+.save-status-saved {
+  color: #2f855a;
+}
+
+.save-status-error {
+  color: #c53030;
+}
+
 .text-area,
 .field input,
 .field select,
