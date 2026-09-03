@@ -95,6 +95,13 @@ python scripts/pipeline_smoke_test.py --through project
   `--cleanup` 测试结束后自动删除测试项目
   `--keep-project` 即使带了 `--cleanup` 也保留测试项目
 
+- 如果想按前缀批量清理历史测试项目，可执行：
+
+```bash
+python scripts/cleanup_test_projects.py --dry-run
+python scripts/cleanup_test_projects.py --prefix smoke --prefix pipeline-smoke
+```
+
 ## Linux / macOS 前端启动
 
 ```bash
@@ -157,6 +164,13 @@ python scripts/pipeline_smoke_test.py --through project
   `--prefix` 自定义测试项目名前缀
   `--cleanup` 测试结束后自动删除测试项目
   `--keep-project` 即使带了 `--cleanup` 也保留测试项目
+
+- 如果想按前缀批量清理历史测试项目，可执行：
+
+```powershell
+python scripts/cleanup_test_projects.py --dry-run
+python scripts/cleanup_test_projects.py --prefix smoke --prefix pipeline-smoke
+```
 
 ### 前端开发启动（PowerShell）
 
