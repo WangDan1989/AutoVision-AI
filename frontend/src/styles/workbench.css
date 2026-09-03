@@ -131,6 +131,66 @@ button {
   gap: 10px;
 }
 
+.subtitle-preview-card {
+  background: #ffffff;
+  border: 1px solid #ddd6f3;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.timeline-slider {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.subtitle-stage {
+  min-height: 88px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  background: #171327;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.subtitle-line {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.subtitle-empty {
+  margin: 0;
+  color: #d0c8f1;
+}
+
+.subtitle-list {
+  display: grid;
+  gap: 10px;
+}
+
+.subtitle-list-item {
+  border: 1px solid #ddd6f3;
+  border-radius: 10px;
+  padding: 12px;
+  background: #faf8ff;
+}
+
+.subtitle-list-item.active {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 1px #8b5cf6 inset;
+}
+
+.subtitle-text-preview {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
 .toast-container {
   position: fixed;
   top: 16px;

@@ -19,6 +19,8 @@ const emit = defineEmits<{
 
 const toast = useToastStore();
 const submitting = ref(false);
+const previewTime = ref(0);
+const DEFAULT_TRANSITION_SEC = 0.35;
 const form = reactive({
   subtitle_enabled: true,
   transition_enabled: true,
@@ -42,8 +44,14 @@ function defaultSubtitleText(segment: any) {
   return [segment.dialogue_text || "", segment.narration_text || ""].filter(Boolean).join("\n");
 }
 
-function rebuildSubtitleItems() {
-  const overlap = form.transition_enabled ? 0.35 : 0;
+function formatSeconds(seconds: number) {
+  const safeValue = Math.max(Number(seconds || 0), 0);
+  return `${safeValue.toFixed(1)}s`;
+}
+
+function rebuildSubtitleItems(preserveExisting = true) {
+  const overlap = form.transition_enabled ? DEFAULT_TRANSITION_SEC : 0;
+  const existingMap = new Map(form.subtitle_items.map((item) => [item.segment_id, item]));
   let currentOffset = 0;
   form.subtitle_items = props.segments
     .map((segment) => {
@@ -53,14 +61,14 @@ function rebuildSubtitleItems() {
       const startSec = Number(currentOffset.toFixed(3));
       const endSec = Number((currentOffset + duration).toFixed(3));
       currentOffset += Math.max(duration - overlap, 0);
-      const existing = form.subtitle_items.find((item) => item.segment_id === segment.id);
+      const existing = existingMap.get(segment.id);
       return {
         segment_id: segment.id,
         seq_no: Number(segment.seq_no || 0),
         scene_name: segment.scene_name || "未命名场景",
-        start_sec: existing ? existing.start_sec : startSec,
-        end_sec: existing ? existing.end_sec : endSec,
-        text: existing ? existing.text : defaultSubtitleText(segment),
+        start_sec: preserveExisting && existing ? existing.start_sec : startSec,
+        end_sec: preserveExisting && existing ? existing.end_sec : endSec,
+        text: preserveExisting && existing ? existing.text : defaultSubtitleText(segment),
       };
     })
     .filter(Boolean) as Array<{
@@ -85,7 +93,50 @@ const readyCount = computed(() =>
   props.segments.filter((segment) => props.videos.some((video) => video.segment_id === segment.id)).length,
 );
 
+const sortedSubtitleItems = computed(() =>
+  [...form.subtitle_items].sort((a, b) => Number(a.start_sec || 0) - Number(b.start_sec || 0)),
+);
+
+const totalPreviewDuration = computed(() =>
+  sortedSubtitleItems.value.reduce((maxValue, item) => Math.max(maxValue, Number(item.end_sec || 0)), 0),
+);
+
+const activePreviewItems = computed(() =>
+  sortedSubtitleItems.value.filter((item) => {
+    const startSec = Number(item.start_sec || 0);
+    const endSec = Number(item.end_sec || 0);
+    return previewTime.value >= startSec && previewTime.value <= endSec;
+  }),
+);
+
+watch(totalPreviewDuration, (value) => {
+  if (previewTime.value > value) {
+    previewTime.value = Math.max(value, 0);
+  }
+});
+
+function resetTimeline() {
+  rebuildSubtitleItems(false);
+  toast.success("字幕时间轴已按片段时长重置");
+}
+
+function resetSubtitleText() {
+  form.subtitle_items = form.subtitle_items.map((item) => {
+    const segment = props.segments.find((segmentItem) => segmentItem.id === item.segment_id);
+    return {
+      ...item,
+      text: segment ? defaultSubtitleText(segment) : item.text,
+    };
+  });
+  toast.success("字幕文本已恢复为自动生成内容");
+}
+
 async function handleExport() {
+  const invalidItem = form.subtitle_items.find((item) => Number(item.end_sec || 0) < Number(item.start_sec || 0));
+  if (invalidItem) {
+    toast.error(`分镜 #${invalidItem.seq_no} 的字幕结束时间不能早于开始时间`);
+    return;
+  }
   submitting.value = true;
   try {
     await generateExport(props.projectId, {
@@ -129,9 +180,15 @@ async function handleExport() {
       </label>
     </div>
 
+    <div class="toolbar">
+      <button type="button" @click="resetTimeline">一键重置时间轴</button>
+      <button type="button" @click="resetSubtitleText">恢复默认字幕</button>
+    </div>
+
     <div class="list-grid timeline-grid" v-if="form.subtitle_items.length">
       <article v-for="item in form.subtitle_items" :key="item.segment_id" class="item-card">
         <strong>#{{ item.seq_no }} {{ item.scene_name }}</strong>
+        <p>当前片段默认时间：{{ formatSeconds(item.start_sec) }} - {{ formatSeconds(item.end_sec) }}</p>
         <label class="field">
           <span>字幕文本</span>
           <textarea v-model="item.text" class="text-area" rows="4" placeholder="可手动修改导出字幕内容" />
@@ -139,15 +196,48 @@ async function handleExport() {
         <div class="field-row">
           <label class="field">
             <span>开始秒</span>
-            <input v-model="item.start_sec" type="number" min="0" step="0.1" />
+            <input v-model.number="item.start_sec" type="number" min="0" step="0.1" />
           </label>
           <label class="field">
             <span>结束秒</span>
-            <input v-model="item.end_sec" type="number" min="0" step="0.1" />
+            <input v-model.number="item.end_sec" type="number" min="0" step="0.1" />
           </label>
         </div>
       </article>
     </div>
+
+    <section v-if="sortedSubtitleItems.length" class="subtitle-preview-card">
+      <div class="toolbar toolbar-between">
+        <strong>导出前字幕预览</strong>
+        <span>{{ formatSeconds(previewTime) }} / {{ formatSeconds(totalPreviewDuration) }}</span>
+      </div>
+      <input
+        v-model.number="previewTime"
+        class="timeline-slider"
+        type="range"
+        min="0"
+        :max="Math.max(totalPreviewDuration, 0)"
+        step="0.1"
+      />
+      <div class="subtitle-stage">
+        <p v-if="!activePreviewItems.length" class="subtitle-empty">当前时刻没有字幕</p>
+        <p v-for="item in activePreviewItems" :key="item.segment_id" class="subtitle-line">
+          {{ item.text || "空字幕" }}
+        </p>
+      </div>
+      <div class="subtitle-list">
+        <article
+          v-for="item in sortedSubtitleItems"
+          :key="item.segment_id"
+          class="subtitle-list-item"
+          :class="{ active: previewTime >= Number(item.start_sec || 0) && previewTime <= Number(item.end_sec || 0) }"
+        >
+          <strong>#{{ item.seq_no }} {{ item.scene_name }}</strong>
+          <p>{{ formatSeconds(item.start_sec) }} - {{ formatSeconds(item.end_sec) }}</p>
+          <p class="subtitle-text-preview">{{ item.text || "空字幕" }}</p>
+        </article>
+      </div>
+    </section>
 
     <div class="list-grid" v-if="exportsList.length">
       <article v-for="item in exportsList" :key="item.id" class="item-card">
