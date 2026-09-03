@@ -22,6 +22,8 @@
 
 - `Step 4` 支持保留最近一轮批量失败汇总
 
+- `Step 5` 支持查看每次导出的 compose plan 摘要
+
 ## 目录说明
 
 - `backend/`：FastAPI、SQLite、真实服务接入、媒体导出链路
@@ -180,6 +182,8 @@ EXPORT_TRANSITION_SEC=0.35
 - Step 4 最近任务状态与时间显示
 
 - Step 4 批量失败汇总
+
+- Step 5 compose plan 摘要展示
 
 - 成片导出
 

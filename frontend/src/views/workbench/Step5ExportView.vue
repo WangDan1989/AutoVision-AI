@@ -40,6 +40,27 @@ function latestVideo(segmentId: string) {
     .sort((a, b) => Number(b.version_no || 0) - Number(a.version_no || 0))[0];
 }
 
+function segmentLabel(segmentId: string) {
+  const segment = props.segments.find((item) => item.id === segmentId);
+  if (!segment) return segmentId;
+  return `#${segment.seq_no} ${segment.scene_name || "未命名场景"}`;
+}
+
+function formatTimeRange(startSec: number, endSec: number) {
+  return `${formatSeconds(startSec)} - ${formatSeconds(endSec)}`;
+}
+
+function summaryStats(item: any) {
+  const composePlan = item.compose_plan || [];
+  const audioCount = composePlan.filter((plan: any) => !!plan.audio_track_id).length;
+  const subtitleCount = composePlan.filter((plan: any) => !!String(plan.subtitle_text || "").trim()).length;
+  return {
+    segments: composePlan.length,
+    audioCount,
+    subtitleCount,
+  };
+}
+
 function defaultSubtitleText(segment: any) {
   return [segment.dialogue_text || "", segment.narration_text || ""].filter(Boolean).join("\n");
 }
@@ -365,9 +386,25 @@ async function handleExport() {
       <article v-for="item in exportsList" :key="item.id" class="item-card">
         <strong>导出版本 v{{ item.version_no }}</strong>
         <p>状态：{{ item.status }}</p>
-        <p>片段数：{{ (item.compose_plan || []).length }}</p>
+        <p>片段数：{{ summaryStats(item).segments }}</p>
+        <p>音轨数：{{ summaryStats(item).audioCount }}，字幕段数：{{ summaryStats(item).subtitleCount }}</p>
+        <p>字幕：{{ item.subtitle_enabled ? "已烧录" : "未烧录" }}，转场：{{ item.transition_enabled ? "已启用" : "未启用" }}</p>
         <video v-if="item.output_url" class="preview-media" controls :src="`http://127.0.0.1:8000${item.output_url}`" />
         <a v-if="item.output_url" :href="`http://127.0.0.1:8000${item.output_url}`" target="_blank" rel="noreferrer">打开成片</a>
+
+        <div v-if="(item.compose_plan || []).length" class="compose-plan-list">
+          <article v-for="plan in item.compose_plan" :key="`${item.id}-${plan.segment_id}`" class="compose-plan-item">
+            <strong>{{ segmentLabel(plan.segment_id) }}</strong>
+            <p>时间轴：{{ formatTimeRange(Number(plan.start_sec || 0), Number(plan.end_sec || 0)) }}</p>
+            <p>视频片段：{{ plan.video_clip_id || "无" }}</p>
+            <p>音频片段：{{ plan.audio_track_id || "无" }}</p>
+            <p v-if="plan.subtitle_text">字幕：{{ plan.subtitle_text }}</p>
+            <p v-if="plan.subtitle_text">
+              字幕时间：{{ formatTimeRange(Number(plan.subtitle_start_sec || 0), Number(plan.subtitle_end_sec || 0)) }}
+            </p>
+            <p v-else>字幕：无</p>
+          </article>
+        </div>
       </article>
     </div>
   </section>

@@ -301,6 +301,29 @@ button {
   white-space: pre-wrap;
 }
 
+.compose-plan-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.compose-plan-item {
+  border: 1px solid #ddd6f3;
+  border-radius: 10px;
+  padding: 12px;
+  background: #faf8ff;
+}
+
+.compose-plan-item p,
+.compose-plan-item strong {
+  margin: 0 0 6px;
+}
+
+.compose-plan-item p:last-child {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
 .toast-container {
   position: fixed;
   top: 16px;
