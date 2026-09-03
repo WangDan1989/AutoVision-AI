@@ -11,6 +11,7 @@ const props = defineProps<{
   frames: any[];
   videos: any[];
   audioTracks: any[];
+  tasks: any[];
 }>();
 
 const emit = defineEmits<{
@@ -66,6 +67,26 @@ function latestAudio(segmentId: string) {
   return props.audioTracks
     .filter((item) => item.segment_id === segmentId)
     .sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || ""))[0];
+}
+
+function latestFailedTask(segmentId: string, taskType: string) {
+  return props.tasks
+    .filter(
+      (item) =>
+        item.entity_type === "segment" &&
+        item.entity_id === segmentId &&
+        item.task_type === taskType &&
+        item.status === "FAILED",
+    )
+    .sort((a, b) => Date.parse(b.updated_at || b.created_at || "") - Date.parse(a.updated_at || a.created_at || ""))[0];
+}
+
+function latestVideoError(segmentId: string) {
+  return latestFailedTask(segmentId, "VIDEO_RENDER");
+}
+
+function latestAudioError(segmentId: string) {
+  return latestFailedTask(segmentId, "TTS_RENDER");
 }
 
 const readyForBatchVideo = computed(() =>
@@ -193,6 +214,16 @@ async function handleBatchGenerateAudio() {
         <strong>#{{ segment.seq_no }} {{ segment.scene_name || "未命名场景" }}</strong>
         <p>{{ segment.visual_desc }}</p>
         <p>锁帧：{{ latestLockedFrame(segment.id) ? "已就绪" : "未锁定" }}</p>
+
+        <div v-if="latestVideoError(segment.id)" class="error-panel">
+          <strong>最近视频失败</strong>
+          <p>{{ latestVideoError(segment.id).error_message || latestVideoError(segment.id).error_code || "未知错误" }}</p>
+        </div>
+
+        <div v-if="latestAudioError(segment.id)" class="error-panel">
+          <strong>最近音频失败</strong>
+          <p>{{ latestAudioError(segment.id).error_message || latestAudioError(segment.id).error_code || "未知错误" }}</p>
+        </div>
 
         <div v-if="latestLockedFrame(segment.id)?.image_url">
           <img :src="`http://127.0.0.1:8000${latestLockedFrame(segment.id).image_url}`" class="preview-image" alt="locked frame" />

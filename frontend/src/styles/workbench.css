@@ -134,6 +134,25 @@ button {
   color: #4a5568;
 }
 
+.error-panel {
+  background: #fff5f5;
+  border: 1px solid #f0a3ad;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.error-panel p,
+.error-panel strong {
+  margin: 0;
+}
+
+.error-panel strong {
+  display: block;
+  color: #c53030;
+  margin-bottom: 6px;
+}
+
 .timeline-grid {
   margin-bottom: 16px;
 }

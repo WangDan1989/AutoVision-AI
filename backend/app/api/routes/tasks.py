@@ -33,9 +33,14 @@ def list_tasks(project_id: str | None = None, db: Session = Depends(get_db)):
                     "project_id": item.project_id,
                     "step_no": item.step_no,
                     "task_type": item.task_type,
+                    "entity_type": item.entity_type,
+                    "entity_id": item.entity_id,
                     "status": item.status,
+                    "error_code": item.error_code,
                     "error_message": item.error_message,
+                    "result_json": item.result_json,
                     "created_at": item.created_at,
+                    "updated_at": item.updated_at,
                 }
                 for item in items
             ]

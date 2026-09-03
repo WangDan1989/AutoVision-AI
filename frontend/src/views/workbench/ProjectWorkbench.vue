@@ -61,6 +61,7 @@ onMounted(async () => {
       :frames="store.frames"
       :videos="store.videos"
       :audio-tracks="store.audioTracks"
+      :tasks="store.tasks"
       @refresh="store.refresh(projectId)"
     />
     <Step5ExportView
