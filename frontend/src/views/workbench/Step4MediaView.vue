@@ -25,6 +25,8 @@ const batchVideoRunning = ref(false);
 const batchAudioRunning = ref(false);
 const batchVideoProgress = ref({ done: 0, total: 0, success: 0, failed: 0 });
 const batchAudioProgress = ref({ done: 0, total: 0, success: 0, failed: 0 });
+const batchVideoFailures = ref<Array<{ segmentId: string; label: string; message: string }>>([]);
+const batchAudioFailures = ref<Array<{ segmentId: string; label: string; message: string }>>([]);
 const videoForms = reactive<Record<string, any>>({});
 const audioForms = reactive<Record<string, any>>({});
 
@@ -81,12 +83,50 @@ function latestFailedTask(segmentId: string, taskType: string) {
     .sort((a, b) => Date.parse(b.updated_at || b.created_at || "") - Date.parse(a.updated_at || a.created_at || ""))[0];
 }
 
+function latestTask(segmentId: string, taskType: string) {
+  return props.tasks
+    .filter(
+      (item) =>
+        item.entity_type === "segment" &&
+        item.entity_id === segmentId &&
+        item.task_type === taskType,
+    )
+    .sort((a, b) => Date.parse(b.updated_at || b.created_at || "") - Date.parse(a.updated_at || a.created_at || ""))[0];
+}
+
 function latestVideoError(segmentId: string) {
   return latestFailedTask(segmentId, "VIDEO_RENDER");
 }
 
 function latestAudioError(segmentId: string) {
   return latestFailedTask(segmentId, "TTS_RENDER");
+}
+
+function latestVideoTask(segmentId: string) {
+  return latestTask(segmentId, "VIDEO_RENDER");
+}
+
+function latestAudioTask(segmentId: string) {
+  return latestTask(segmentId, "TTS_RENDER");
+}
+
+function formatTaskTime(value: string) {
+  const time = Date.parse(value || "");
+  if (Number.isNaN(time)) return "未知时间";
+  return new Date(time).toLocaleString("zh-CN", {
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function statusLabel(status: string) {
+  if (status === "COMPLETED") return "成功";
+  if (status === "FAILED") return "失败";
+  if (status === "RUNNING") return "运行中";
+  return status || "未知";
 }
 
 const readyForBatchVideo = computed(() =>
@@ -136,13 +176,19 @@ async function handleBatchGenerateVideo() {
 
   batchVideoRunning.value = true;
   batchVideoProgress.value = { done: 0, total: targets.length, success: 0, failed: 0 };
+  batchVideoFailures.value = [];
 
   for (const segment of targets) {
     try {
       await generateVideo(segment.id, videoFormOf(segment.id));
       batchVideoProgress.value.success += 1;
-    } catch {
+    } catch (error) {
       batchVideoProgress.value.failed += 1;
+      batchVideoFailures.value.push({
+        segmentId: segment.id,
+        label: `#${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+        message: getErrorMessage(error, "生成视频失败"),
+      });
     } finally {
       batchVideoProgress.value.done += 1;
     }
@@ -167,13 +213,19 @@ async function handleBatchGenerateAudio() {
 
   batchAudioRunning.value = true;
   batchAudioProgress.value = { done: 0, total: targets.length, success: 0, failed: 0 };
+  batchAudioFailures.value = [];
 
   for (const segment of targets) {
     try {
       await generateAudio(segment.id, audioFormOf(segment));
       batchAudioProgress.value.success += 1;
-    } catch {
+    } catch (error) {
       batchAudioProgress.value.failed += 1;
+      batchAudioFailures.value.push({
+        segmentId: segment.id,
+        label: `#${segment.seq_no} ${segment.scene_name || "未命名场景"}`,
+        message: getErrorMessage(error, "生成音频失败"),
+      });
     } finally {
       batchAudioProgress.value.done += 1;
     }
@@ -207,6 +259,20 @@ async function handleBatchGenerateAudio() {
       <p v-if="batchAudioRunning" class="batch-progress">
         音频批量进度：{{ batchAudioProgress.done }}/{{ batchAudioProgress.total }}，成功 {{ batchAudioProgress.success }}，失败 {{ batchAudioProgress.failed }}
       </p>
+
+      <div v-if="batchVideoFailures.length" class="batch-summary-panel">
+        <strong>最近一轮视频批量失败</strong>
+        <p v-for="item in batchVideoFailures" :key="`${item.segmentId}-video`" class="batch-summary-item">
+          {{ item.label }}：{{ item.message }}
+        </p>
+      </div>
+
+      <div v-if="batchAudioFailures.length" class="batch-summary-panel">
+        <strong>最近一轮音频批量失败</strong>
+        <p v-for="item in batchAudioFailures" :key="`${item.segmentId}-audio`" class="batch-summary-item">
+          {{ item.label }}：{{ item.message }}
+        </p>
+      </div>
     </div>
 
     <div class="list-grid" v-if="segments.length">
@@ -214,6 +280,15 @@ async function handleBatchGenerateAudio() {
         <strong>#{{ segment.seq_no }} {{ segment.scene_name || "未命名场景" }}</strong>
         <p>{{ segment.visual_desc }}</p>
         <p>锁帧：{{ latestLockedFrame(segment.id) ? "已就绪" : "未锁定" }}</p>
+
+        <div class="task-meta-grid">
+          <p v-if="latestVideoTask(segment.id)" class="task-meta-item">
+            视频任务：{{ statusLabel(latestVideoTask(segment.id).status) }}，{{ formatTaskTime(latestVideoTask(segment.id).updated_at || latestVideoTask(segment.id).created_at) }}
+          </p>
+          <p v-if="latestAudioTask(segment.id)" class="task-meta-item">
+            音频任务：{{ statusLabel(latestAudioTask(segment.id).status) }}，{{ formatTaskTime(latestAudioTask(segment.id).updated_at || latestAudioTask(segment.id).created_at) }}
+          </p>
+        </div>
 
         <div v-if="latestVideoError(segment.id)" class="error-panel">
           <strong>最近视频失败</strong>
