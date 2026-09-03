@@ -19,6 +19,7 @@ from app.db.session import engine
 
 
 def ensure_storage_dirs() -> None:
+    settings.media_root_path.mkdir(parents=True, exist_ok=True)
     for dirname in (
         settings.IMAGES_DIR,
         settings.VIDEOS_DIR,
@@ -49,6 +50,8 @@ async def lifespan(_: FastAPI):
     ensure_runtime_columns()
     yield
 
+
+ensure_storage_dirs()
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=str(settings.media_root_path)), name="media")

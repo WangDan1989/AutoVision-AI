@@ -26,6 +26,8 @@ async def generate_frame(segment_id: str, req: GenerateFrameRequest, db: Session
         raise HTTPException(status_code=404, detail="segment not found")
     try:
         frame = await StoryboardService(db).generate_frame(segment, req)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiResponse(request_id=frame.id, data={"frame_id": frame.id, "image_path": frame.image_path})

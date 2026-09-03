@@ -337,6 +337,10 @@ class ExportService:
             self.task_log.complete(task, result_json=json.dumps({"export_job_id": export.id}, ensure_ascii=False))
             return export
         except Exception as exc:
+            if isinstance(exc, RuntimeError) and str(exc).startswith("未找到可执行文件："):
+                raise RuntimeError(
+                    f"未找到 FFmpeg 可执行文件，请检查 FFMPEG_BIN={settings.FFMPEG_BIN} 或确认 ffmpeg 已加入 PATH"
+                ) from exc
             self.task_log.fail(task, str(exc), "EXPORT_RENDER_FAILED")
             raise
 

@@ -25,6 +25,8 @@ def generate_video(segment_id: str, req: GenerateVideoRequest, db: Session = Dep
         raise HTTPException(status_code=404, detail="segment not found")
     try:
         clip = VideoService(db).generate_clip(segment, req)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiResponse(request_id=clip.id, data={"video_clip_id": clip.id, "video_path": clip.video_path})

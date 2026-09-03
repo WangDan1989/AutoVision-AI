@@ -25,6 +25,8 @@ def generate_export(project_id: str, req: GenerateExportRequest, db: Session = D
         raise HTTPException(status_code=404, detail="project not found")
     try:
         export_job = ExportService(db).create_export(project, req)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiResponse(request_id=export_job.id, data={"export_job_id": export_job.id, "output_path": export_job.output_path})

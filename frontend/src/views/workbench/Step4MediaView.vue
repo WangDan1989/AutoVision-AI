@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from "vue";
 
 import { generateAudio, generateVideo, updateProjectPreferences } from "../../api/projectWorkbench";
+import { useProjectWorkbenchStore } from "../../stores/projectWorkbench";
 import { useToastStore } from "../../stores/toast";
 import { getErrorMessage } from "../../utils/error";
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToastStore();
+const workbenchStore = useProjectWorkbenchStore();
 const videoLoadingId = ref("");
 const audioLoadingId = ref("");
 const batchVideoRunning = ref(false);
@@ -38,6 +40,7 @@ const defaults = reactive({
   audio_track_type: "NARRATION",
   audio_voice_profile: "",
 });
+const saveState = ref<"idle" | "saving" | "saved" | "error">("idle");
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -68,6 +71,7 @@ watch(
     defaults.audio_track_type = value?.audio_track_type || "NARRATION";
     defaults.audio_voice_profile = value?.audio_voice_profile || "";
     hydrating = false;
+    saveState.value = "idle";
   },
   { immediate: true, deep: true },
 );
@@ -78,14 +82,19 @@ watch(
     if (hydrating || !props.project) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
+      saveState.value = "saving";
       try {
-        await updateProjectPreferences(props.projectId, {
-          storyboard: defaultStoryboardPrefs(),
+        const response = await updateProjectPreferences(props.projectId, {
           media: { ...defaults },
-          export: defaultExportPrefs(),
         });
-      } catch {
-        // keep local form usable even if persistence fails
+        workbenchStore.applyProjectPreferences(
+          response.data.data.preferences,
+          response.data.data.updated_at,
+        );
+        saveState.value = "saved";
+      } catch (error) {
+        saveState.value = "error";
+        toast.error(getErrorMessage(error, "Step 4 默认参数自动保存失败"));
       }
     }, 400);
   },
@@ -321,6 +330,17 @@ async function handleBatchGenerateAudio() {
 <template>
   <section class="step-view">
     <h2>Step 4 图生视频与音频</h2>
+    <p class="save-status" :class="`save-status-${saveState}`">
+      {{
+        saveState === "saving"
+          ? "项目默认参数保存中..."
+          : saveState === "saved"
+            ? "项目默认参数已保存"
+            : saveState === "error"
+              ? "项目默认参数保存失败，请检查后端连接"
+              : "修改默认值后会自动保存；需要覆盖当前分镜表单时请点“应用默认值到全部分镜”"
+      }}
+    </p>
 
     <div class="batch-panel">
       <div class="toolbar toolbar-between">

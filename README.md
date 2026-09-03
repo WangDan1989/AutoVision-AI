@@ -42,12 +42,34 @@
 
 ```bash
 cd backend
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 bash scripts/init_storage.sh
 bash scripts/dev.sh
+```
+
+- 建议使用 `Python 3.11/3.12/3.13`
+
+- 当前不建议直接使用 `Python 3.14` 运行后端，部分依赖在该版本下可能安装失败
+
+- 启动前可先执行运行时自检：
+
+```bash
+python scripts/check_runtime.py
+```
+
+- 后端启动后可再执行最小接口冒烟测试：
+
+```bash
+python scripts/smoke_test.py
+```
+
+- 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
+
+```bash
+python scripts/service_smoke_test.py
 ```
 
 ## Linux / macOS 前端启动
@@ -64,12 +86,30 @@ npm run dev
 
 ```powershell
 cd backend
-python -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
 New-Item -ItemType Directory -Force -Path storage\images, storage\videos, storage\audio, storage\exports, storage\loras, storage\temp
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- 启动前可先执行运行时自检：
+
+```powershell
+python scripts/check_runtime.py
+```
+
+- 后端启动后可再执行最小接口冒烟测试：
+
+```powershell
+python scripts/smoke_test.py
+```
+
+- 如果需要进一步验证真实依赖本身，可执行服务级 smoke test：
+
+```powershell
+python scripts/service_smoke_test.py
 ```
 
 ### 前端开发启动（PowerShell）
@@ -102,6 +142,8 @@ npm run build
 
 - 如果使用默认语音方案，请确保 `edge-tts` 可正常安装并可联网访问微软 TTS 服务
 
+- 如果本机同时装有多个 Python，请优先使用 `3.12` 或 `3.13`
+
 ## 运行前置
 
 ### Step 1
@@ -114,6 +156,8 @@ npm run build
 
   - `OLLAMA_MODEL`
 
+- 若页面提示无法连接 `Ollama`，优先检查 `OLLAMA_BASE_URL` 和 `ollama serve`
+
 ### Step 3
 
 - 本地启动 `ComfyUI`
@@ -124,9 +168,15 @@ npm run build
 
   - `COMFYUI_CHECKPOINT`
 
+- `COMFYUI_CHECKPOINT` 不能为空，否则 Step 3 会直接拒绝真实生成
+
+- 若页面提示无法连接 `ComfyUI`，优先检查 `COMFYUI_BASE_URL`、ComfyUI Web 服务和模型是否加载完成
+
 ### Step 4
 
 - 安装 `FFmpeg`
+
+- 建议同时确认 `ffprobe` 也已加入 `PATH`
 
 - 默认使用：
 
@@ -141,11 +191,27 @@ TTS_PROVIDER=http
 TTS_BASE_URL=http://127.0.0.1:5000/tts
 ```
 
+- 若使用 `edge-tts`，本机需要可联网
+
+- 成功标准：
+
+  - 至少一个已锁定首帧的分镜可成功生成视频片段
+
+  - 至少一个有文本的分镜可成功生成音频
+
 ### Step 5
 
 - 若开启字幕烧录，`FFmpeg` 需要支持 `subtitles` 过滤器，常见发行版通常自带 `libass`
 
 - 若开启转场，系统会按 `EXPORT_TRANSITION_SEC` 做相邻片段淡入淡出
+
+- 成功标准：
+
+  - 所有待导出分镜都已有视频片段
+
+  - 导出预检无错误项
+
+  - 可输出最终成片，且在需要时完成字幕烧录与转场
 
 ## 关键环境变量
 

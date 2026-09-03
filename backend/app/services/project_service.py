@@ -70,9 +70,14 @@ class ProjectService:
             merged[key].update(raw.get(key, {}))
         return ProjectPreferences.model_validate(merged).model_dump()
 
-    def update_preferences(self, project: Project, preferences: dict) -> Project:
+    def update_preferences(self, project: Project, preferences_patch: dict) -> Project:
+        merged = self.get_preferences(project)
+        for key in ("storyboard", "media", "export"):
+            value = preferences_patch.get(key)
+            if value is not None:
+                merged[key].update(value)
         project.preferences_json = json.dumps(
-            ProjectPreferences.model_validate(preferences).model_dump(),
+            ProjectPreferences.model_validate(merged).model_dump(),
             ensure_ascii=False,
         )
         project.updated_at = utc_now_iso()

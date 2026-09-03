@@ -3,8 +3,15 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(BACKEND_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     APP_NAME: str = "AutoVision-AI"
     APP_ENV: str = "dev"
@@ -41,11 +48,17 @@ class Settings(BaseSettings):
 
     @property
     def sqlite_url(self) -> str:
-        return f"sqlite:///{self.SQLITE_PATH}"
+        db_path = Path(self.SQLITE_PATH)
+        if not db_path.is_absolute():
+            db_path = BACKEND_DIR / db_path
+        return f"sqlite:///{db_path}"
 
     @property
     def media_root_path(self) -> Path:
-        return Path(self.MEDIA_ROOT)
+        media_root = Path(self.MEDIA_ROOT)
+        if not media_root.is_absolute():
+            media_root = BACKEND_DIR / media_root
+        return media_root
 
 
 settings = Settings()
