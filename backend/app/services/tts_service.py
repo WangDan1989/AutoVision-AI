@@ -61,8 +61,17 @@ class TTSService:
             ) from exc
 
     async def _generate_with_edge_tts(self, text: str, output_path: Path, voice: str) -> None:
+        backend_dir = Path(__file__).resolve().parents[2]
+        libs_dir = backend_dir / "libs"
+        env = os.environ.copy()
+        existing_pypath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            str(libs_dir) + os.pathsep + str(backend_dir) + (os.pathsep + existing_pypath if existing_pypath else "")
+        )
         command = [
-            "edge-tts",
+            sys.executable,
+            "-m",
+            "edge_tts",
             "--voice",
             voice,
             "--text",
@@ -70,7 +79,7 @@ class TTSService:
             "--write-media",
             str(output_path),
         ]
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        completed = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
         if completed.returncode != 0:
             stderr = (completed.stderr or completed.stdout or "").strip()
             raise RuntimeError(f"edge-tts 生成音频失败，请检查网络、voice 配置或 edge-tts 安装状态: {stderr or 'unknown error'}")
