@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import AppToastContainer from "../../components/common/AppToastContainer.vue";
@@ -21,7 +21,51 @@ const toast = useToastStore();
 const projectId = computed(() => String(route.params.projectId || ""));
 const activeStep = ref(1);
 const workbenchUnavailable = ref(false);
+const manuallyRefreshing = ref(false);
+const autoRefreshing = ref(false);
 let polling = useTaskPolling(projectId.value || "");
+let autoTimer: number | null = null;
+
+function syncAutoRefreshingFlag() {
+  const anyRunning = store.tasks.some((item) => item.status === "RUNNING");
+  autoRefreshing.value = anyRunning;
+}
+
+async function manualRefresh() {
+  if (!projectId.value || manuallyRefreshing.value) return;
+  manuallyRefreshing.value = true;
+  try {
+    await store.refresh(projectId.value);
+    syncAutoRefreshingFlag();
+    if (store.tasks.some((item) => item.status === "RUNNING")) {
+      polling.start();
+      if (autoTimer === null) {
+        autoTimer = window.setInterval(() => {
+          syncAutoRefreshingFlag();
+          if (!store.tasks.some((item) => item.status === "RUNNING")) {
+            if (autoTimer !== null) {
+              clearInterval(autoTimer);
+              autoTimer = null;
+            }
+            autoRefreshing.value = false;
+          }
+        }, 1500);
+      }
+    }
+    toast.success("数据已刷新");
+  } catch (error) {
+    toast.error(getErrorMessage(error, "刷新失败"));
+  } finally {
+    manuallyRefreshing.value = false;
+  }
+}
+
+onBeforeUnmount(() => {
+  if (autoTimer !== null) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+  }
+});
 
 async function loadWorkbench(targetProjectId: string) {
   if (!targetProjectId) {
@@ -35,8 +79,21 @@ async function loadWorkbench(targetProjectId: string) {
     workbenchUnavailable.value = false;
     polling.stop();
     polling = useTaskPolling(targetProjectId);
+    syncAutoRefreshingFlag();
     if (store.tasks.some((item) => item.status === "RUNNING")) {
       polling.start();
+      if (autoTimer === null) {
+        autoTimer = window.setInterval(() => {
+          syncAutoRefreshingFlag();
+          if (!store.tasks.some((item) => item.status === "RUNNING")) {
+            if (autoTimer !== null) {
+              clearInterval(autoTimer);
+              autoTimer = null;
+            }
+            autoRefreshing.value = false;
+          }
+        }, 1500);
+      }
     }
   } catch (error) {
     workbenchUnavailable.value = true;
@@ -73,8 +130,15 @@ watch(
         <div>
           <h1>AutoVision-AI 工作台</h1>
           <p v-if="store.project">项目：{{ store.project.name }}</p>
+          <p v-if="store.project" class="helper-text">
+            Step 解锁：{{ store.project.current_step_unlock || 1 }} | 当前任务：{{ store.tasks.length }} 个
+            <span v-if="autoRefreshing" class="status-running">（任务运行中，自动刷新已开启）</span>
+          </p>
         </div>
-        <div class="toolbar">
+        <div class="toolbar workbench-toolbar">
+          <button class="ghost-btn" :disabled="!projectId || manuallyRefreshing" @click="manualRefresh">
+            {{ manuallyRefreshing ? "刷新中..." : "刷新数据" }}
+          </button>
           <button @click="router.push('/projects')">返回项目中心</button>
         </div>
       </header>

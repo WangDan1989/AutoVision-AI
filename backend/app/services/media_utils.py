@@ -3,8 +3,14 @@ import subprocess
 from pathlib import Path
 
 
-def run_subprocess(command: list[str], error_prefix: str) -> None:
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+def run_subprocess(command: list[str], error_prefix: str, cwd: str | Path | None = None) -> None:
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(cwd) if cwd is not None else None,
+    )
     if completed.returncode != 0:
         stderr = (completed.stderr or completed.stdout or "").strip()
         raise RuntimeError(f"{error_prefix}: {stderr or 'unknown error'}")

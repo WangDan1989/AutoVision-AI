@@ -13,7 +13,14 @@ const loading = ref(false);
 const items = ref<any[]>([]);
 const creating = ref(false);
 const showCreateForm = ref(false);
-const form = ref({ name: "", description: "" });
+const form = ref({
+  name: "",
+  description: "",
+  aspect_ratio: "16:9" as "16:9" | "9:16",
+  fps: 24,
+  target_width: 1280,
+  target_height: 720,
+});
 const deletingIds = ref<Set<string>>(new Set());
 
 const canSubmit = computed(() => !!form.value.name.trim());
@@ -42,12 +49,25 @@ async function handleCreate() {
     const res = await createProject({
       name: form.value.name.trim(),
       description: form.value.description?.trim() || undefined,
+      aspect_ratio: form.value.aspect_ratio || "16:9",
+      fps: Number(form.value.fps) || 24,
+      target_width: Number(form.value.target_width) || 1280,
+      target_height: Number(form.value.target_height) || 720,
     });
     const project = res?.data?.data ?? res?.data;
     const projectId = project?.id;
-    toast.success(`项目「${form.value.name}」已创建`);
+    toast.success(
+      `项目「${form.value.name}」已创建（${form.value.aspect_ratio || "16:9"} / ${Number(form.value.fps) || 24}fps / ${Number(form.value.target_width) || 1280}×${Number(form.value.target_height) || 720}）`
+    );
     showCreateForm.value = false;
-    form.value = { name: "", description: "" };
+    form.value = {
+      name: "",
+      description: "",
+      aspect_ratio: "16:9",
+      fps: 24,
+      target_width: 1280,
+      target_height: 720,
+    };
     await refresh();
     if (projectId) {
       router.push(`/projects/${projectId}/workbench`);
@@ -128,22 +148,22 @@ onMounted(refresh);
       <div class="field-row">
         <div class="field">
           <label>画幅</label>
-          <select class="select-box">
-            <option value="16:9">16:9</option>
-            <option value="9:16">9:16</option>
+          <select class="select-box" v-model="form.aspect_ratio">
+            <option value="16:9">16:9（横屏）</option>
+            <option value="9:16">9:16（竖屏）</option>
           </select>
         </div>
         <div class="field">
           <label>FPS</label>
-          <input type="number" min="1" max="60" value="24" />
+          <input type="number" min="1" max="60" step="1" v-model.number="form.fps" />
         </div>
         <div class="field">
           <label>宽度</label>
-          <input type="number" min="256" max="4096" step="8" value="1280" />
+          <input type="number" min="256" max="4096" step="8" v-model.number="form.target_width" />
         </div>
         <div class="field">
           <label>高度</label>
-          <input type="number" min="256" max="4096" step="8" value="720" />
+          <input type="number" min="256" max="4096" step="8" v-model.number="form.target_height" />
         </div>
       </div>
       <div class="toolbar">

@@ -23,9 +23,8 @@ from app.utils.time import utc_now_iso
 
 class ExportService:
     @staticmethod
-    def _ffmpeg_subtitles_filter_arg(srt_path: Path) -> str:
-        posix = srt_path.as_posix()
-        escaped = posix.replace("'", r"'\''")
+    def _ffmpeg_subtitles_filter_arg(srt_basename: str) -> str:
+        base = srt_basename.replace("'", r"'\''")
         style_chunks = [
             "FontName=Microsoft YaHei",
             "FontSize=24",
@@ -43,7 +42,7 @@ class ExportService:
             "Angle=0",
         ]
         force_style = ",".join(style_chunks)
-        return f"subtitles='{escaped}':charenc=utf-8:force_style='{force_style}'"
+        return f"subtitles='{base}':charenc=utf-8:force_style='{force_style}'"
 
     @staticmethod
     def _fallback_subtitle_enabled(req: GenerateExportRequest) -> bool:
@@ -325,6 +324,7 @@ class ExportService:
                 )
 
             subtitle_path = temp_dir / f"{project.id}_export_v{version_no}.srt"
+            srt_basename = subtitle_path.name
             effective_subtitle_enabled = (
                 req.subtitle_enabled
                 and subtitle_items
@@ -341,12 +341,13 @@ class ExportService:
                             "-i",
                             str(av_output_path),
                             "-vf",
-                            self._ffmpeg_subtitles_filter_arg(subtitle_path),
+                            self._ffmpeg_subtitles_filter_arg(srt_basename),
                             "-c:a",
                             "copy",
                             str(output_path),
                         ],
                         "FFmpeg 烧录字幕失败",
+                        cwd=temp_dir,
                     )
                     actual_subtitle_flag = True
                 except Exception:
