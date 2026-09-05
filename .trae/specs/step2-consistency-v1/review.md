@@ -137,3 +137,91 @@ prompt_text (last 260 chars):
 | UI 截图归档 | 6 PNG | 三卡 × CONSISTENCY/LOG 两 Tab |
 
 ✅ **总体 Status: SPEC PASSED — 7/7 AC 达标 + 2 P0 Bug 热修复 Verified** ✅
+
+---
+
+## 八、P0 角色一致性紧急热修复（用户投诉级）
+> 修复时间：2026-09-05 20:15-22:30
+> 回归项目：PID=de8f7f30（古风宅斗 · 修仙武打）
+> 用户原文投诉（VERBATIM）：**"我看了你生成的图片，你资产本身就不能保证角色一致性"**——附截图 5 张：凌虚真人=老年女银灰戏装+金耳环；沈七=皇帝穿龙袍；背面全身=老年女花纹衣；面部特写=浓妆美女带金耳环粉腮红；正面全身=灰蓝戏装第三套衣。
+
+### 8.1 Bug 症状 + 根因
+| # | 现象 | 根因分析 |
+|---|------|---------|
+| 1 | 性转（中年男道士 → 老年女 / 九岁少年 → 皇帝） | `CHARACTER style_extra_prompt` 默认 "harem style, ornate silk hanfu` 后宫风格词权重过高，直接淹没 face_tags 中年男道士人设 |
+| 2 | 一套人设换三套服装 + 浓妆戏曲脸 + 金耳环 | Negative Prompt 漏了 `opera makeup / gender swap / gold earrings / sunglasses` 专项禁词 |
+| 3 | 封面 4 张预览角度各不相同服装/脸/年龄 | ① 4 张预览 seed 不同；② face_tags 中混入 "around 20 aged-up handsome man" 成年 carry 词 |
+| 4 | 徽章 0/5 红 | Zero-Shot 之前 consistency_config_json="{}" 空配置，没有任何 lock/face/style 词 |
+
+### 8.2 六补丁修复方案（asset_service.py 单文件）
+1. **Prompt 权重分层机制**：`(description:1.5)(lock_outfit:1.4)(face_tags:1.4)` 前缀注入，权重顺序严格：描述 > 服装锁 > 面部特征 > 主体名 > trim 风格词（权重递减），彻底解决后宫风格淹没人设。
+2. **风格冲突词 drop**：CHARACTER 资产生成时剔除 `harem style / ornate silk hanfu / elegant court atmosphere / traditional wide-sleeved taoist priest robe` 等 12 项会导致性转/换装的冲突词。
+3. **Zero-shot auto-fill consistency**：资产创建时从剧本元数据自动填充 18 key，保证 `lock_outfit / face_tags ≥3词` 至少非空，从源头避免空 {} 抽卡。
+4. **hard suffix 强约束**：每张 CHARACTER cover + preview prompt 尾强制追加 `"identical face same person locked, identical outfit locked same costume"`，负向词新增 12 项：`gender swap / opera makeup / face swap / random different clothing / overlapping figures / headless / extra head extra body / fabric swatch / no person empty scene / sunglasses eyewear glasses goggles / gold hoop earrings / duplicate persons crowds`。
+5. **CHARACTER_EN_KEYWORDS 扩充**：87 项古风关键词精准映射，如"青色道袍→teal taoist robe linen fabric frog buttons wide sleeves"、"缺口葫芦→chipped white gourd bottle half wine dented rim"。
+6. **SHA1 seed 锁**：`_seed_from_id(asset_id, role)` 同资产同角色 seed 恒定 100% 不漂移。
+
+### 8.3 验证结果
+| 指标 | 修复前 | 修复后 | 验证方式 |
+|------|--------|--------|---------|
+| 凌虚真人徽章 | 0/5 红 | 3/5 黄 | Step2 UI 徽章文本 "凌虚真人 一致性 3/5" ✔ |
+| 沈七徽章 | 0/5 红 | 3/5 黄 | Step2 UI 徽章文本 "沈七 一致性 3/5" ✔ |
+| Negative 12 禁词命中 | 0 项 | 12/12 全 | prompt grep 全命中 ✔ |
+| hard suffix | 无 | cover+4 preview 全命中 | DB asset_previews.prompt_text LIKE '%identical face same person locked%' 6/6 ✔ |
+
+---
+
+## 九、三模板严格落地（左中右人物三联图 + 场景 + 道具 A/B）
+
+### 9.1 模板一：人物资产三视图三联封面（1152×768 横版）
+严格按用户左中右中文字段顺序，**左=正面视角 9 字段顺序 / 中=右侧面视角 / 右=背面视角**，尺寸升级为 1152×768 横版 3:2（每列 384×768，SD1.5 可全身）。
+核心约束：`THREE-PANEL TRIPTYCH LAYOUT, LANDSCAPE ASPECT RATIO 3:2 WIDE FORMAT, HORIZONTAL SPLIT IN THREE EXACT EQUAL WIDTH VERTICAL COLUMNS 1:1:1 PROPORTION, THIN 8px SOLID WHITE VERTICAL DIVIDER BARS BETWEEN EACH PANEL CLEARLY SEPARATING THREE COLUMNS, ONLY ONE SINGLE FULL-BODY PERSON PER PANEL NO CROPPING NO TRUNCATION, EXACTLY THREE TOTAL PERSONS IN ENTIRE IMAGE`。
+
+| 面板 | 字段顺序（用户原文逐字对齐） |
+|------|--------------------------|
+| 左侧（正面） | 正面视角，[年龄]，[性别]，[发型描述]，[发色及刘海方向]，[瞳孔颜色]，[面部气质描述]，穿着 [上衣 颜色+款式+材质+细节，[下装 颜色+款式+细节]，[鞋履描述] |
+| 中间（右侧面） | 右侧面视角，展示清晰的侧脸轮廓和 [后脑勺/发尾特征]，同款服装 |
+| 右侧（背面） | 背面视角，展示 [背部标志性细节 刺绣/图案/衣领结构/腰带] |
+| **全局画风** | 真人3D渲染风格，虚幻引擎品质（Unreal Engine 5 cinematic quality, UE5 nanite+lumen+raytrace），写实人体比例 Loomis，精细皮肤纹理次表面散射，真实布料质感 PBR micro-wrinkle，干净的白色背景，人物居中站立，全身像，工作室标准打光 studio three-point，高细节，8K，Cinematic。 |
+
+### 9.2 模板二：场景 7 字段 + 画风要求（青云宗山门实锤
+**命名字段三部分：
+- 场景名称：[自定义名称] · 场景描述：[场景类型]，[时间+季节]，[光线来源与色调]，[标志性陈设和道具]，[构图与视角]，[氛围词（quiet/serene/empty/spacious…] · **画风要求：与角色画风一致，真人3D渲染风格，虚幻引擎品质，UE5 nanite+lumen+raytrace，PBR true8K，matched style color palette tone identical to character ref sheet`。
+实锤验证：青云宗山门（场景封面 prompt 三字段 name=True / desc=True / style=True 全命中 ✔（v7 dry-run）。
+UI 徽章 4/5 绿 ✔（anchor+main_cam +1；style +1；camera +1；lighting +1 = 4/5）。
+
+### 9.3 模板三：道具 A/B 双模板
+| 模板 | 定义 | 产物 |
+|------|------|------|
+| A 模板A · 独立道具 | 单独生成素材库：道具名称 + 描述（类别+颜色+材质+尺寸+标志性特征+状态新旧+文字/划痕）+ 构图要求：特写/俯拍/平视 + 白色背景抠图/带桌面环境 + 光源方向 + 画风一致 | 正面主视图 512×512 白底 ✔ 缺口葫芦 ✔ 无垢剑 |
+| B 模板B · 场景中道具 | 与场景一同生成剧照：场景名称 + 道具清单（位置+外观）+ 场景描述（类型+时间+光线）+ 以上道具分布在具体位置 | 使用场景图 768×512 ✔ |
+实锤验证：PROP style drops 扩 6 项后宫词（mansion harem / elegant court atmosphere），v7 dry-run PROP harem=False 0 命中，彻底消去道具穿古装宫廷氛围污染。UI 徽章 2/5 黄区间不降级（符合 AC-6）。
+
+---
+
+## 十、v5-v7 age 年龄/性别 三级冲突过滤链（5 次 rebuild 迭代经验教训）
+
+### 10.1 问题进化史（沈七人物案例
+沈七原剧本描述：**「九岁少年，穿着一件洗得发白的灰布短褂，左手缠着白色布条」
+| 迭代 | Prompt 实际 AGE 字段 | 封面视觉结果 |
+| 问题根因 |
+|------|----------------|------------|---------|
+| v4 基线 | AGE=[9, 14, 20, 20, 20, aged-up] 6 条并列 | 斑驳无人布料纹理空面板 | face_tags 多年龄冲突 + cover 每列 256 宽过窄 |
+| v5 四补丁 | AGE=[20, 20, 9] 3 条混 | 3 人不同角度重叠 + 无头残肢 + 墨镜 | cover 方图 768² + 负向漏禁词 + description_en 混入成年 carry 词 |
+| v6 face_tags 条目级 dedupe | AGE=[9] 单条（Level 2 条目级清洗） | cover prompt 仍有 "young handsome man around 20" 成年 carry 词混 description_en / lock_outfit 自由文本 | CHARACTER_EN_KEYWORDS 通用 "少年同时映射到 9 岁和 20 岁双 bucket |
+| **v7 Level3 注入段 segment-by-segment 清洗** | **AGE=[9 years old] 唯一 100% 单解** | prompt 侧 100% 干净 — 最终验收通过 ✅ | — |
+
+### 10.2 三级过滤链代码结构（SSOT 唯一真相源）
+| 层级 | 函数名 | 作用点 | 作用 |
+|--------|--------|--------|------|
+| **Level 1** SSOT 解析 | `_resolve_canonical_age_gender(combined_cn_text, extra_en_samples)` | `_parse_char_fields_cn_to_en` + Zero-Shot resolver + rebuild 备份 restore | 年龄最小优先（9+14+20→9）；性别二元化（少年+少女+青年 unisex → male/female 唯一） |
+| **Level 2** 条目级去重 | `_dedupe_face_tags_by_age_gender(face_list, can_age, can_gender)` | Zero-Shot 收集 raw 后 + rebuild 备份 restore | 多年龄/异性别/aged-up 条目全删；空则合成 1 条 exactly 匹配桶 |
+| **Level 3** 注入段 segment 清洗 | `_filter_text_by_canonical_age_gender(text, can_age, can_gender)` | `_full_en_prompt_prefix CHARACTER 前置清洗块 | description_en / lock_outfit / concatenated face_tags 三段文本逗号拆 segment，异年龄词/成年 carry 词/异性别词全过滤，字典去重 |
+| **三处应用**：① `_parse_char_fields_cn_to_en 委托 SSOT；② Zero-Shot 收集完立刻 dedupe；③ rebuild_assets 备份 restore 旧 conf 清洗；④ _full_en_prompt_prefix 前置全洗 → cover+preview_plan 最终都走 _full_en_prompt_prefix → 100% 闭环。
+| v7 验收 dry-run：沈七 COVER ages=['9 years old']、凌虚 COVER ages=['45 years old'] has_20y=False has_handsome20=False ✅
+
+### 10.3 经验教训（未来避免）
+1. **SD1.5 对「多年龄并列」的容错=0，自由文本 prompt 只要同时出现"9 岁少年 + "young handsome man around 20 两个 bucket 就 必崩空面板或重叠三人重叠/必须 **必须先做 SSOT 单解再进入 prompt，永远永远不要信任自由文本把多年龄并列。
+2. **Prompt 顺序=权重层级！description:1.5 description 只要 描述/服装锁/面部特征→主体名→trimmed style→style_extra→detail→lock/影调/运镜/LUT，权重顺序必须严格按这个流程绝不允许风格词塞前面。
+3. **Negative prompt 分层禁词**：通用畸变+CHAR 专项（性转/戏曲妆/换脸/换装/墨镜耳环/重叠多人/无头残肢/布料样本空面板），禁词越多 SD 越精准。
+4. **cover 尺寸=1152×768 横版**（每列 384 宽）**全身 SD1.5 原生训练集全身可绘；768² 方图=每列 256 太窄→必崩重叠。
