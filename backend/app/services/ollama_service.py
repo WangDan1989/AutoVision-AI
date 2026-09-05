@@ -38,7 +38,7 @@ class OllamaService:
 """.strip()
 
     def _extract_json_text(self, text: str) -> str:
-        fenced = re.findall(r"```(?:json)?\\s*([\\s\\S]*?)```", text, flags=re.IGNORECASE)
+        fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.IGNORECASE)
         if fenced:
             return fenced[0].strip()
         start = text.find("{")
@@ -50,8 +50,8 @@ class OllamaService:
     def _repair_json(self, text: str) -> str:
         fixed = text.replace("\u201c", '"').replace("\u201d", '"')
         fixed = fixed.replace("\u2018", "'").replace("\u2019", "'")
-        fixed = re.sub(r",\\s*([}\\]])", r"\\1", fixed)
-        fixed = re.sub(r'(?<=\\{|,)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*:', r'"\\1":', fixed)
+        fixed = re.sub(r",\s*([}\]])", r"\1", fixed)
+        fixed = re.sub(r'(?<=[{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'"\1":', fixed)
         return fixed
 
     def _normalize(self, data: dict[str, Any]) -> dict[str, Any]:

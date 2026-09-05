@@ -37,7 +37,7 @@ class StoryboardService:
         if not asset:
             return "", 0.75, ""
 
-        binding = self.db.scalar(select(AssetBinding).where(Asset.asset_id == asset.id, Asset.variant_id.is_(None)))
+        binding = self.db.scalar(select(AssetBinding).where(AssetBinding.asset_id == asset.id, AssetBinding.variant_id.is_(None)))
         if not binding or not binding.lora_enabled or not binding.lora_file_path:
             return "", 0.75, ""
 
