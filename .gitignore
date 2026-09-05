@@ -4,8 +4,11 @@ __pycache__/
 *.pyd
 .DS_Store
 
+backend/autovision.db
 backend/autovision.db-journal
+backend/.env
 backend/.env.local
+
 storage/
 backend/storage/audio/
 backend/storage/images/
@@ -13,6 +16,7 @@ backend/storage/videos/
 backend/storage/exports/
 backend/storage/temp/
 backend/storage/uploads/
+backend/storage/trash/
 
 frontend/dist/
 frontend/node_modules/
@@ -20,3 +24,5 @@ frontend/.vite/
 
 *.log
 .env.bak
+
+_*.py

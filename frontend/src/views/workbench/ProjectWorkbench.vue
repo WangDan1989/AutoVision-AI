@@ -152,7 +152,7 @@ watch(
       </nav>
 
       <Step1ScriptView v-if="activeStep === 1" :project-id="projectId" :segments="store.segments" @refresh="store.refresh(projectId)" />
-      <Step2AssetsView v-if="activeStep === 2" :project-id="projectId" :assets="store.assets" @refresh="store.refresh(projectId)" />
+      <Step2AssetsView v-if="activeStep === 2" :project-id="projectId" :assets="store.assets" :genre-style="store.project?.genre_style" @refresh="store.refresh(projectId)" />
       <Step3StoryboardView
         v-if="activeStep === 3"
         :project-id="projectId"

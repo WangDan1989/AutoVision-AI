@@ -50,6 +50,54 @@ def ensure_runtime_columns() -> None:
                     "ALTER TABLE projects ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'"
                 )
             )
+        if "genre_style" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE projects ADD COLUMN genre_style TEXT NOT NULL DEFAULT 'AUTO'"
+                )
+            )
+        if "last_parse_result_json" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE projects ADD COLUMN last_parse_result_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            )
+        seg_rows = conn.execute(text("PRAGMA table_info(script_segments)")).mappings().all()
+        seg_cols = {row["name"] for row in seg_rows}
+        if "location_canonical" not in seg_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE script_segments ADD COLUMN location_canonical TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        asset_rows = conn.execute(text("PRAGMA table_info(assets)")).mappings().all()
+        asset_cols = {row["name"] for row in asset_rows}
+        if "consistency_config_json" not in asset_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE assets ADD COLUMN consistency_config_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            )
+        preview_rows = conn.execute(text("PRAGMA table_info(asset_previews)")).mappings().all()
+        preview_cols = {row["name"] for row in preview_rows}
+        if "camera_tag" not in preview_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE asset_previews ADD COLUMN camera_tag TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "pose_tag" not in preview_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE asset_previews ADD COLUMN pose_tag TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "lighting_tag" not in preview_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE asset_previews ADD COLUMN lighting_tag TEXT NOT NULL DEFAULT ''"
+                )
+            )
 
 
 @asynccontextmanager

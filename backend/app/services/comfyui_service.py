@@ -8,13 +8,14 @@ from app.core.config import settings
 
 
 class ComfyUIService:
-    def _build_workflow(self, positive_prompt: str, negative_prompt: str, width: int, height: int, filename_prefix: str, lora_name: str = "", lora_weight: float = 0.75) -> dict:
+    def _build_workflow(self, positive_prompt: str, negative_prompt: str, width: int, height: int, filename_prefix: str, lora_name: str = "", lora_weight: float = 0.75, seed: int | None = None) -> dict:
         if not settings.COMFYUI_CHECKPOINT:
             raise ValueError("未配置 COMFYUI_CHECKPOINT，无法调用真实 ComfyUI 生成首帧")
 
         base_loader_id = "4"
         positive_clip_ref = ["4", 1]
         sampler_model_ref = ["4", 0]
+        actual_seed = seed if seed is not None else random.randint(1, 2**31 - 1)
 
         workflow: dict = {
             "4": {
@@ -53,7 +54,7 @@ class ComfyUIService:
                 },
                 "3": {
                     "inputs": {
-                        "seed": random.randint(1, 2**31 - 1),
+                        "seed": actual_seed,
                         "steps": 24,
                         "cfg": 7,
                         "sampler_name": "euler",
@@ -78,15 +79,18 @@ class ComfyUIService:
         )
         return workflow
 
-    async def generate_image(self, positive_prompt: str, width: int, height: int, filename_prefix: str, lora_name: str = "", lora_weight: float = 0.75) -> dict:
+    async def generate_image(self, positive_prompt: str, width: int, height: int, filename_prefix: str, lora_name: str = "", lora_weight: float = 0.75, negative_prompt: str | None = None, seed: int | None = None) -> dict:
+        if negative_prompt is None:
+            negative_prompt = settings.COMFYUI_NEGATIVE_PROMPT or ""
         workflow = self._build_workflow(
             positive_prompt=positive_prompt,
-            negative_prompt=settings.COMFYUI_NEGATIVE_PROMPT,
+            negative_prompt=negative_prompt,
             width=width - (width % 16),
             height=height - (height % 16),
             filename_prefix=filename_prefix,
             lora_name=lora_name,
             lora_weight=lora_weight,
+            seed=seed,
         )
 
         try:

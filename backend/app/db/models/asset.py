@@ -15,6 +15,7 @@ class Asset(Base, TimestampMixin):
     canonical_name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     cover_image_path: Mapped[str] = mapped_column(String, default="", nullable=False)
+    consistency_config_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
 
 
@@ -48,4 +49,23 @@ class AssetBinding(Base, TimestampMixin):
     ip_adapter_weight: Mapped[float] = mapped_column(Float, default=0.60, nullable=False)
     reference_image_paths_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     decouple_clothes: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class AssetPreview(Base, TimestampMixin):
+    __tablename__ = "asset_previews"
+    __table_args__ = (UniqueConstraint("asset_id", "preview_role", name="uq_preview_asset_role"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    asset_id: Mapped[str] = mapped_column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    preview_role: Mapped[str] = mapped_column(String, nullable=False)
+    preview_label: Mapped[str] = mapped_column(String, default="", nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    image_path: Mapped[str] = mapped_column(String, default="", nullable=False)
+    width: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    camera_tag: Mapped[str] = mapped_column(String, default="", nullable=False)
+    pose_tag: Mapped[str] = mapped_column(String, default="", nullable=False)
+    lighting_tag: Mapped[str] = mapped_column(String, default="", nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)

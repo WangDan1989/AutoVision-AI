@@ -12,6 +12,7 @@ class ScriptSegment(Base, TimestampMixin):
     project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     seq_no: Mapped[int] = mapped_column(Integer, nullable=False)
     scene_name: Mapped[str] = mapped_column(String, default="", nullable=False)
+    location_canonical: Mapped[str] = mapped_column(String, default="", nullable=False)
     visual_desc: Mapped[str] = mapped_column(Text, nullable=False)
     camera_lang: Mapped[str] = mapped_column(String, default="", nullable=False)
     character_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)

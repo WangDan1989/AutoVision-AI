@@ -16,5 +16,7 @@ class Project(Base, TimestampMixin):
     target_width: Mapped[int] = mapped_column(Integer, nullable=False, default=1280)
     target_height: Mapped[int] = mapped_column(Integer, nullable=False, default=720)
     fps: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
+    genre_style: Mapped[str] = mapped_column(String, default="AUTO", nullable=False)
     raw_script_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
     preferences_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    last_parse_result_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)

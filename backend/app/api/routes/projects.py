@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 from app.db.models.project import Project
 from app.db.session import SessionLocal
 from app.schemas.common import ApiResponse
-from app.schemas.project import CreateProjectRequest, UpdateProjectPreferencesRequest
+from app.schemas.project import (
+    ConfirmDeleteRequest,
+    CreateProjectRequest,
+    UpdateProjectPreferencesRequest,
+)
 from app.services.project_service import ProjectService
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -43,8 +47,14 @@ def list_projects(db: Session = Depends(get_db)):
                 {
                     "id": item.id,
                     "name": item.name,
+                    "description": item.description,
                     "status": item.status,
                     "current_step_unlock": item.current_step_unlock,
+                    "aspect_ratio": item.aspect_ratio,
+                    "target_width": item.target_width,
+                    "target_height": item.target_height,
+                    "fps": item.fps,
+                    "genre_style": item.genre_style,
                     "updated_at": item.updated_at,
                 }
                 for item in items
@@ -72,6 +82,7 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
             "target_width": project.target_width,
             "target_height": project.target_height,
             "fps": project.fps,
+            "genre_style": project.genre_style,
             "preferences": service.get_preferences(project),
             "updated_at": project.updated_at,
         },
@@ -104,7 +115,16 @@ def update_project_preferences(
 
 
 @router.delete("/{project_id}")
-def delete_project(project_id: str, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: str,
+    req: ConfirmDeleteRequest,
+    db: Session = Depends(get_db),
+):
+    if not req.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="删除项目必须显式确认：请求体 confirm=true",
+        )
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="project not found")

@@ -1,5 +1,32 @@
 import { api } from "../utils/api";
 
+export interface ConsistencyConfigTS {
+  lock_outfit: boolean;
+  face_tags: string[];
+  style_lora_name: string;
+  style_lora_weight: number;
+  style_extra_prompt: string;
+  scene_anchor_desc: string;
+  main_camera_tag: string;
+  lighting_preset: string;
+  lighting_color_temp_k: number;
+  lighting_direction: string;
+  lighting_lut: string;
+  camera_move_preset: string;
+  camera_180_axis: "left" | "right" | "";
+  pose_tags: Record<string, string>;
+  voice_preset: string;
+  voice_emotion_preset: string;
+  consistency_ref_images: string[];
+  scene_ref_images: string[];
+}
+
+export type SaveConsistencyPayload = ConsistencyConfigTS & {
+  preview_camera_tags: Record<string, string>;
+  preview_pose_tags: Record<string, string>;
+  preview_lighting_tags: Record<string, string>;
+};
+
 export function getProjects() {
   return api.get("/api/projects");
 }
@@ -13,7 +40,7 @@ export function getProject(projectId: string) {
 }
 
 export function deleteProject(projectId: string) {
-  return api.delete(`/api/projects/${projectId}`);
+  return api.delete(`/api/projects/${projectId}`, { data: { confirm: true } });
 }
 
 export function updateProjectPreferences(projectId: string, preferences: any) {
@@ -44,6 +71,10 @@ export function getAssets(projectId: string) {
 
 export function saveAssetBinding(assetId: string, payload: any) {
   return api.post(`/api/assets/${assetId}/bindings`, payload);
+}
+
+export function saveAssetConsistency(assetId: string, payload: SaveConsistencyPayload) {
+  return api.post(`/api/assets/${assetId}/consistency`, payload);
 }
 
 export function generateFrame(segmentId: string, payload: any) {

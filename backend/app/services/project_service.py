@@ -36,6 +36,7 @@ class ProjectService:
             target_width=req.target_width,
             target_height=req.target_height,
             fps=req.fps,
+            genre_style=req.genre_style or "AUTO",
             raw_script_text="",
             preferences_json=json.dumps(self.build_default_preferences(req.target_width, req.target_height, req.fps), ensure_ascii=False),
             created_at=now,
@@ -145,7 +146,56 @@ class ProjectService:
 
         return file_paths
 
+    def _serialize_row(self, obj) -> dict:
+        data: dict = {}
+        for col in obj.__table__.columns:
+            value = getattr(obj, col.name)
+            if isinstance(value, (dict, list, str, int, float, bool)) or value is None:
+                data[col.name] = value
+            else:
+                try:
+                    data[col.name] = str(value)
+                except Exception:
+                    data[col.name] = None
+        return data
+
+    def _backup_project_to_trash(self, project: Project) -> Path:
+        trash_dir = settings.media_root_path / "trash"
+        trash_dir.mkdir(parents=True, exist_ok=True)
+
+        children_models = [
+            ("asset_bindings", AssetBinding),
+            ("asset_variants", AssetVariant),
+            ("audio_tracks", AudioTrack),
+            ("video_clips", VideoClip),
+            ("export_jobs", ExportJob),
+            ("storyboard_frames", StoryboardFrame),
+            ("file_registries", FileRegistry),
+            ("task_queue", TaskQueue),
+            ("assets", Asset),
+            ("script_segments", ScriptSegment),
+        ]
+
+        children_payload: dict[str, list[dict]] = {}
+        for key, model in children_models:
+            items = list(self.db.scalars(select(model).where(model.project_id == project.id)))
+            children_payload[key] = [self._serialize_row(it) for it in items]
+
+        payload = {
+            "backup_at": utc_now_iso(),
+            "project": self._serialize_row(project),
+            "children": children_payload,
+        }
+
+        safe_ts = utc_now_iso().replace(":", "-").replace("T", "_")
+        backup_path = trash_dir / f"{project.id}_{safe_ts}.json"
+        with open(backup_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+        return backup_path
+
     def delete_project(self, project: Project) -> dict:
+        backup_path = self._backup_project_to_trash(project)
+
         file_paths = self._collect_project_file_paths(project.id)
 
         children = [
@@ -183,4 +233,5 @@ class ProjectService:
             "project_id": project.id,
             "deleted_files": deleted_file_count,
             "deleted_rows": deleted_rows,
+            "backup_path": backup_path.as_posix(),
         }

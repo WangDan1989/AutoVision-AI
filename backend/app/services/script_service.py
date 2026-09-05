@@ -30,6 +30,8 @@ class ScriptService:
         try:
             result = await self.ollama.parse_script(raw_script_text)
             self.db.execute(delete(ScriptSegment).where(ScriptSegment.project_id == project.id))
+            if not project.genre_style or project.genre_style == "AUTO":
+                project.genre_style = result.get("genre_style_guess") or "GUZHUANG_XIANXIA"
             now = utc_now_iso()
             for index, item in enumerate(result["segments"], start=1):
                 self.db.add(
@@ -38,6 +40,7 @@ class ScriptService:
                         project_id=project.id,
                         seq_no=index,
                         scene_name=item["scene_name"],
+                        location_canonical=item.get("location_canonical") or "",
                         visual_desc=item["visual_desc"],
                         camera_lang=item["camera_lang"],
                         character_ids_json=json.dumps(item["character_ids"], ensure_ascii=False),
@@ -52,6 +55,7 @@ class ScriptService:
                 )
 
             project.raw_script_text = raw_script_text
+            project.last_parse_result_json = json.dumps(result, ensure_ascii=False)
             project.status = ProjectStatus.RUNNING.value
             project.current_step_unlock = max(project.current_step_unlock, 2)
             project.updated_at = now
@@ -74,6 +78,7 @@ class ScriptService:
                 "project_id": item.project_id,
                 "seq_no": item.seq_no,
                 "scene_name": item.scene_name,
+                "location_canonical": item.location_canonical,
                 "visual_desc": item.visual_desc,
                 "camera_lang": item.camera_lang,
                 "character_ids": json.loads(item.character_ids_json or "[]"),
