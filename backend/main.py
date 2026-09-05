@@ -1,6 +1,15 @@
 from contextlib import asynccontextmanager
+import sys
+from pathlib import Path
+
+_BACKEND_DIR = Path(__file__).resolve().parent
+_LIBS_DIR = _BACKEND_DIR / "libs"
+for _p in (str(_BACKEND_DIR), str(_LIBS_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -54,6 +63,13 @@ async def lifespan(_: FastAPI):
 ensure_storage_dirs()
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/media", StaticFiles(directory=str(settings.media_root_path)), name="media")
 
 app.include_router(projects_router)

@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 from pathlib import Path
 
 from sqlalchemy import select
@@ -20,6 +22,44 @@ from app.utils.time import utc_now_iso
 
 
 class ExportService:
+    @staticmethod
+    def _ffmpeg_subtitles_filter_arg(srt_path: Path) -> str:
+        posix = srt_path.as_posix()
+        escaped = posix.replace("'", r"'\''")
+        style_chunks = [
+            "FontName=Microsoft YaHei",
+            "FontSize=24",
+            "PrimaryColour=&H00FFFFFF",
+            "OutlineColour=&H00000000",
+            "BackColour=&H00000000",
+            "Bold=0",
+            "Italic=0",
+            "BorderStyle=1",
+            "Outline=1",
+            "Shadow=1",
+            "Alignment=2",
+            "MarginV=40",
+            "Spacing=0",
+            "Angle=0",
+        ]
+        force_style = ",".join(style_chunks)
+        return f"subtitles='{escaped}':charenc=utf-8:force_style='{force_style}'"
+
+    @staticmethod
+    def _fallback_subtitle_enabled(req: GenerateExportRequest) -> bool:
+        if not getattr(req, "subtitle_enabled", True):
+            return False
+        if sys.platform.startswith("win"):
+            windir = os.environ.get("WINDIR") or r"C:\Windows"
+            candidates = [
+                Path(windir) / "Fonts" / "msyh.ttc",
+                Path(windir) / "Fonts" / "msyhbd.ttc",
+                Path(windir) / "Fonts" / "simhei.ttf",
+                Path(windir) / "Fonts" / "simsun.ttc",
+            ]
+            return any(p.exists() for p in candidates)
+        return True
+
     def __init__(self, db: Session) -> None:
         self.db = db
         self.task_log = TaskLogService(db)
@@ -285,22 +325,43 @@ class ExportService:
                 )
 
             subtitle_path = temp_dir / f"{project.id}_export_v{version_no}.srt"
-            if req.subtitle_enabled and subtitle_items:
+            effective_subtitle_enabled = (
+                req.subtitle_enabled
+                and subtitle_items
+                and self._fallback_subtitle_enabled(req)
+            )
+            actual_subtitle_flag = False
+            if effective_subtitle_enabled:
                 self._write_srt(subtitle_path, subtitle_items)
-                run_subprocess(
-                    [
-                        ffmpeg_bin,
-                        "-y",
-                        "-i",
-                        str(av_output_path),
-                        "-vf",
-                        f"subtitles={subtitle_path.as_posix()}",
-                        "-c:a",
-                        "copy",
-                        str(output_path),
-                    ],
-                    "FFmpeg 烧录字幕失败",
-                )
+                try:
+                    run_subprocess(
+                        [
+                            ffmpeg_bin,
+                            "-y",
+                            "-i",
+                            str(av_output_path),
+                            "-vf",
+                            self._ffmpeg_subtitles_filter_arg(subtitle_path),
+                            "-c:a",
+                            "copy",
+                            str(output_path),
+                        ],
+                        "FFmpeg 烧录字幕失败",
+                    )
+                    actual_subtitle_flag = True
+                except Exception:
+                    run_subprocess(
+                        [
+                            ffmpeg_bin,
+                            "-y",
+                            "-i",
+                            str(av_output_path),
+                            "-c",
+                            "copy",
+                            str(output_path),
+                        ],
+                        "FFmpeg 字幕烧录失败后的 fallback 输出最终成片失败",
+                    )
             else:
                 run_subprocess(
                     [
@@ -320,7 +381,7 @@ class ExportService:
                 project_id=project.id,
                 version_no=version_no,
                 output_path=str(output_path.resolve()),
-                subtitle_enabled=1 if req.subtitle_enabled else 0,
+                subtitle_enabled=1 if actual_subtitle_flag else 0,
                 transition_enabled=1 if req.transition_enabled else 0,
                 compose_plan_json=json.dumps(compose_plan, ensure_ascii=False),
                 status=JobStatus.COMPLETED.value,

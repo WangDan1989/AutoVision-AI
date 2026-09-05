@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import { createProject, getProjects } from "../api/projectWorkbench";
+import { createProject, deleteProject, getProjects } from "../api/projectWorkbench";
 import { useToastStore } from "../stores/toast";
 import { getErrorMessage } from "../utils/error";
 
@@ -14,6 +14,7 @@ const items = ref<any[]>([]);
 const creating = ref(false);
 const showCreateForm = ref(false);
 const form = ref({ name: "", description: "" });
+const deletingIds = ref<Set<string>>(new Set());
 
 const canSubmit = computed(() => !!form.value.name.trim());
 
@@ -62,6 +63,24 @@ function enterWorkbench(projectId: string) {
   router.push(`/projects/${projectId}/workbench`);
 }
 
+async function handleDelete(project: any) {
+  const ok = window.confirm(`确认删除项目「${project.name || "未命名项目"}」吗？此操作无法撤销。`);
+  if (!ok) return;
+  deletingIds.value.add(project.id);
+  try {
+    const res = await deleteProject(project.id);
+    const payload = res?.data?.data ?? res?.data;
+    toast.success(
+      `已删除项目「${project.name || "未命名项目"}」（删除 ${payload?.deleted_rows ? Object.values(payload.deleted_rows).reduce((a: number, b: number) => a + b, 0) : 0} 条记录，${payload?.deleted_files ?? 0} 个文件）`
+    );
+    await refresh();
+  } catch (error) {
+    toast.error(getErrorMessage(error, "删除项目失败"));
+  } finally {
+    deletingIds.value.delete(project.id);
+  }
+}
+
 function formatDate(value: string | undefined) {
   if (!value) return "-";
   try {
@@ -69,6 +88,11 @@ function formatDate(value: string | undefined) {
   } catch {
     return value;
   }
+}
+
+function formatStep(unlock: number | undefined) {
+  const stepNames = ["", "1. 剧本拆解", "2. 资产池", "3. 分镜首帧", "4. 音频与视频", "5. 导出成片"];
+  return stepNames[unlock ?? 1] || stepNames[1];
 }
 
 onMounted(refresh);
@@ -79,7 +103,7 @@ onMounted(refresh);
     <header class="pc-header">
       <div>
         <h1>AutoVision-AI 项目中心</h1>
-        <p class="pc-subtitle">在这里管理你的短片 / 绘本视频项目</p>
+        <p class="pc-subtitle">支持创建项目、进入工作台和删除历史项目。</p>
       </div>
       <button class="pc-primary" :disabled="creating" @click="showCreateForm = !showCreateForm">
         {{ showCreateForm ? "取消新建" : "+ 新建项目" }}
@@ -90,33 +114,55 @@ onMounted(refresh);
       <h2>新建项目</h2>
       <div class="field">
         <label>项目名称</label>
-        <input v-model="form.name" placeholder="例如：校园悬疑短片 01" maxlength="64" />
+        <input v-model="form.name" placeholder="例如：都市夜景短剧" maxlength="64" />
       </div>
       <div class="field">
-        <label>项目简介（可选）</label>
+        <label>项目描述</label>
         <textarea
           v-model="form.description"
-          rows="3"
+          rows="2"
           class="text-area"
-          placeholder="简单描述这个项目的主题或用途"
+          placeholder="可选，用于备注本次项目目标"
         />
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label>画幅</label>
+          <select class="select-box">
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>FPS</label>
+          <input type="number" min="1" max="60" value="24" />
+        </div>
+        <div class="field">
+          <label>宽度</label>
+          <input type="number" min="256" max="4096" step="8" value="1280" />
+        </div>
+        <div class="field">
+          <label>高度</label>
+          <input type="number" min="256" max="4096" step="8" value="720" />
+        </div>
+      </div>
       <div class="toolbar">
-        <button :disabled="!canSubmit || creating" @click="handleCreate">
+        <button class="pc-primary" :disabled="!canSubmit || creating" @click="handleCreate">
           {{ creating ? "创建中..." : "创建并进入工作台" }}
         </button>
       </div>
     </section>
 
     <section class="pc-list-header">
-      <h2>全部项目</h2>
+      <h2>已有项目</h2>
+      <button v-if="!loading" class="ghost-btn" @click="refresh">刷新列表</button>
       <span v-if="!loading" class="helper-text">共 {{ items.length }} 个</span>
     </section>
 
     <div v-if="loading" class="helper-text">加载中...</div>
 
     <div v-else-if="!items.length" class="card-shell pc-empty">
-      <p>还没有项目，点击右上角「新建项目」开始吧。</p>
+      <p>还没有项目，点击右上角「+ 新建项目」开始吧。</p>
     </div>
 
     <div v-else class="list-grid">
@@ -124,10 +170,16 @@ onMounted(refresh);
         <h3>{{ project.name || "未命名项目" }}</h3>
         <p v-if="project.description" class="pc-desc">{{ project.description }}</p>
         <div class="pc-meta helper-text">
-          <span>创建时间：{{ formatDate(project.created_at) }}</span>
+          <span>状态：{{ project.status || "DRAFT" }} | Step 解锁：{{ formatStep(project.current_step_unlock) }}</span>
+        </div>
+        <div class="pc-meta helper-text">
+          <span>最近更新时间：{{ formatDate(project.updated_at) }}</span>
         </div>
         <div class="toolbar pc-actions">
           <button class="pc-primary" @click="enterWorkbench(project.id)">进入工作台</button>
+          <button class="danger-btn" :disabled="deletingIds.has(project.id)" @click="handleDelete(project)">
+            {{ deletingIds.has(project.id) ? "删除中..." : "删除项目" }}
+          </button>
         </div>
       </article>
     </div>
@@ -210,5 +262,50 @@ onMounted(refresh);
 
 .pc-actions {
   margin-bottom: 0;
+}
+
+.danger-btn {
+  background: transparent;
+  color: #d73a49;
+  border-color: #f5c2c7;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #d73a49;
+}
+
+.ghost-btn {
+  background: transparent;
+  color: #4c3cff;
+  border-color: #d7d4ff;
+}
+
+.ghost-btn:hover {
+  background: #f5f3ff;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.select-box {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d4d7e3;
+  background: #fff;
+  font-size: 14px;
+  color: #1f2236;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select-box:focus {
+  border-color: #4c3cff;
+  box-shadow: 0 0 0 3px rgba(76, 60, 255, 0.15);
 }
 </style>

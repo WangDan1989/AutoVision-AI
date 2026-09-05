@@ -61,28 +61,15 @@ class TTSService:
             ) from exc
 
     async def _generate_with_edge_tts(self, text: str, output_path: Path, voice: str) -> None:
-        backend_dir = Path(__file__).resolve().parents[2]
-        libs_dir = backend_dir / "libs"
-        env = os.environ.copy()
-        existing_pypath = env.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = (
-            str(libs_dir) + os.pathsep + str(backend_dir) + (os.pathsep + existing_pypath if existing_pypath else "")
-        )
-        command = [
-            sys.executable,
-            "-m",
-            "edge_tts",
-            "--voice",
-            voice,
-            "--text",
-            text,
-            "--write-media",
-            str(output_path),
-        ]
-        completed = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
-        if completed.returncode != 0:
-            stderr = (completed.stderr or completed.stdout or "").strip()
-            raise RuntimeError(f"edge-tts 生成音频失败，请检查网络、voice 配置或 edge-tts 安装状态: {stderr or 'unknown error'}")
+        try:
+            import edge_tts
+        except ImportError as exc:
+            raise RuntimeError(
+                "当前 Python 环境未安装 edge-tts，请先执行 pip install --target=backend/libs edge-tts，"
+                "或确认 backend/main.py 已通过 sys.path.insert 注入 backend/libs 路径。"
+            ) from exc
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(str(output_path))
 
     async def generate_segment_audio(self, segment: ScriptSegment, req: GenerateAudioRequest) -> AudioTrack:
         text = self._resolve_text(segment, req)
