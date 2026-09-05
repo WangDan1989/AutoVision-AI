@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     COMFYUI_BASE_URL: str = "http://127.0.0.1:8188"
     COMFYUI_CHECKPOINT: str = ""
     COMFYUI_NEGATIVE_PROMPT: str = "low quality, blurry, bad anatomy, extra fingers, deformed face"
+    COMFYUI_PIPELINE: str = "Z_IMAGE_TURBO"
+    COMFYUI_Z_UNET: str = "z_image_turbo_bf16.safetensors"
+    COMFYUI_Z_CLIP: str = "qwen_3_4b.safetensors"
+    COMFYUI_Z_VAE: str = "ae.safetensors"
+    COMFYUI_Z_SIGMA: int = 3
+    COMFYUI_Z_STEPS: int = 8
+    COMFYUI_Z_CFG: float = 1.0
+    COMFYUI_Z_SAMPLER: str = "res_multistep"
+    COMFYUI_Z_SCHEDULER: str = "simple"
     TTS_BASE_URL: str = ""
     TTS_PROVIDER: str = "edge_tts"
     TTS_VOICE: str = "zh-CN-XiaoxiaoNeural"

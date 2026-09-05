@@ -836,8 +836,8 @@ class AssetService:
     def _build_character_cover_prompt(self, asset: Asset, style_terms: str, consistency: dict | None = None) -> tuple[str, int, int]:
         cons = consistency or {}
         lock_outfit_extra = (
-            ", identical face same person locked across three panels, EXACT matching identical outfit design preserved, "
-            "NO wardrobe change, NO face change, same person every render, strict consistent character identity"
+            ", identical face same person locked across three views, EXACT matching identical outfit design preserved, "
+            "NO wardrobe change, NO face change, same person every view, strict consistent character identity"
         )
         if cons.get("lock_outfit"):
             lock_outfit_extra += (
@@ -847,37 +847,62 @@ class AssetService:
         lighting = self._consistency_lighting_suffix(cons)
         lighting_suffix = f", {lighting}" if lighting else ""
         fields = _parse_char_fields_cn_to_en(asset)
-        left_panel = (
-            "LEFT PANEL front view: "
+        char_name_core = _asset_core_name_en(asset)
+
+        panel_a_cn = (
+            f"左列 正面全身照：{fields.get('age_cn') or fields['age']}岁 {fields.get('gender_cn') or fields['gender']}，"
+            f"发型{fields.get('hair_cn') or fields['hair']}，发色刘海{fields.get('hair_color_cn') or fields['hair_color_dir']}，"
+            f"瞳孔{fields.get('eye_cn') or fields['eye']}，{fields.get('face_cn') or fields['face']}，"
+            f"身着 {fields.get('top_cn') or fields['top']}，{fields.get('bottom_cn') or fields['bottom']}，{fields.get('shoes_cn') or fields['shoes']}"
+        )
+        panel_b_cn = (
+            f"中列 右侧面全身照：清晰侧脸轮廓下颌线颧骨线条，"
+            f"后脑勺发尾特征{fields.get('hair_cn') or fields['hair']}，同款服装同色同面料"
+        )
+        panel_c_cn = (
+            f"右列 背面全身照：背部标志性细节 {fields.get('back_cn') or fields['back']}，"
+            f"同款服装背面结构腰带衣褶完全一致，同人同脸同服装"
+        )
+        layout_cn = (
+            "一张横向三连参考定妆图，左中右三列并排，每列一张全身像，"
+            "纯白无缝工作室背景，三列都是同一个人同一套服装同一脸型发色，绝不三列三个人，"
+            "人物居中站立，全身从头到脚完整不裁剪，三列之间有细细的白色分割线分隔三栏，"
+            "角色：" + (asset.name or char_name_core)
+        )
+
+        panel_a_en = (
+            "LEFT COLUMN front full body view: "
             f"age {fields['age']}, gender {fields['gender']}, {fields['hair']}, {fields['hair_color_dir']}, "
             f"{fields['eye']}, {fields['face']}, wearing {fields['top']}, {fields['bottom']}, {fields['shoes']}"
         )
-        middle_panel = (
-            "MIDDLE PANEL right-side profile view: clear side face jawline and cheek structure, "
-            f"back of head / hair tail detail: {fields['hair']}, same matching outfit as left panel"
+        panel_b_en = (
+            "MIDDLE COLUMN right-side profile full body: clear side face jawline and cheek bone structure, "
+            f"back-of-head hair tail detail: {fields['hair']}, same exact outfit fabric color and design as left column"
         )
-        right_panel = (
-            "RIGHT PANEL back view: "
-            f"{fields['back']}, same matching outfit fabric and colors as left panel, exact same person"
+        panel_c_en = (
+            "RIGHT COLUMN back view full body directly from behind: "
+            f"{fields['back']}, same outfit same fabric same colors same person same face as left column, "
+            "robe collar structure waist belt sash drape from behind clearly visible"
         )
-        char_name_core = _asset_core_name_en(asset)
+        layout_en = (
+            "THREE VIEW CHARACTER REFERENCE SHEET, single wide horizontal image, three equal vertical columns side-by-side, "
+            "one complete full-body head-to-toe standing person in each column, thin 6 pixel solid white vertical divider line "
+            "between left-middle-right columns clearly separating three views, ABSOLUTELY ONLY ONE IDENTICAL PERSON repeated "
+            "three times once per column, three total persons in the entire composite image one per column - NO EXTRA PEOPLE, "
+            "NO crowd, NO overlapping figures, NO extra heads extra bodies, every column same identical face same identical "
+            "hairstyle same identical outfit colors fabrics, clean pure white seamless studio background, neutral standing pose, "
+            f"subject centered in column, {UE8K_QUALITY_CHAR_ONLY}, sharp focus, masterpiece, best quality, highres"
+        )
+
+        prefix = self._full_en_prompt_prefix(asset, style_terms, consistency)
         prompt = (
-            f"{self._full_en_prompt_prefix(asset, style_terms, consistency)}, "
-            "THREE-PANEL TRIPTYCH LAYOUT, LANDSCAPE ASPECT RATIO 3:2 WIDE FORMAT, "
-            "HORIZONTAL SPLIT IN THREE EXACT EQUAL WIDTH VERTICAL COLUMNS 1:1:1 PROPORTION: "
-            "THIN 8px SOLID WHITE VERTICAL DIVIDER BARS BETWEEN EACH PANEL CLEARLY SEPARATING THREE COLUMNS, "
-            f"[1] {left_panel}; [2] {middle_panel}; [3] {right_panel}; "
-            f"character: {char_name_core}; "
-            "ONLY ONE SINGLE FULL-BODY PERSON PER PANEL (same exact identical person duplicated three times once per column), "
-            "EXACTLY THREE TOTAL PERSONS IN ENTIRE IMAGE - ONE IN EACH COLUMN, "
-            "ABSOLUTELY NO CROWD, NO MULTIPLE PEOPLE IN SAME PANEL, NO OVERLAPPING FIGURES, NO EXTRA HEADS OR EXTRA BODIES, "
-            "ALL THREE PANELS SHOW SAME IDENTICAL FACE SAME IDENTICAL HAIRSTYLE SAME IDENTICAL OUTFIT COLORS AND FABRICS, "
-            "THREE EQUAL COLUMNS side by side in one single composite reference sheet image, "
-            f"clean pure white seamless studio background, subject centered, {UE8K_QUALITY_BASELINE_SFX}, "
-            f"sharp focus, perfectly centered full body head-to-toe neutral standing pose in every panel, "
-            f"masterpiece, best quality, highres{lock_outfit_extra}{lighting_suffix}"
+            f"{layout_cn}。{panel_a_cn}。{panel_b_cn}。{panel_c_cn}。"
+            f"画风：真人3D渲染风格，虚幻引擎品质，写实人体比例，精细皮肤纹理，真实布料质感，"
+            f"工作室标准三点打光，高细节8K，电影感。 {prefix}; "
+            f"{layout_en}; [LEFT] {panel_a_en}; [MID] {panel_b_en}; [RIGHT] {panel_c_en}; "
+            f"character core name: {char_name_core};{lock_outfit_extra}{lighting_suffix}"
         )
-        return prompt, 1152, 768
+        return prompt, 1792, 768
 
     def _build_scene_cover_prompt(self, asset: Asset, style_terms: str, consistency: dict | None = None) -> tuple[str, int, int]:
         cons = consistency or {}
@@ -930,7 +955,7 @@ class AssetService:
             f"dramatic atmospheric lighting, masterpiece, best quality, highres, "
             f"wide angle composition, no people, environment only{anchor_suffix}{lighting_suffix}{lut_suffix}"
         )
-        return prompt, 768, 512
+        return prompt, 1536, 864
 
     def _build_prop_cover_prompt(self, asset: Asset, style_terms: str, consistency: dict | None = None) -> tuple[str, int, int]:
         """Template A: 独立道具 standalone material library asset (白底抠图 + 平视特写)."""
@@ -969,7 +994,7 @@ class AssetService:
             f"matching character art style: identical rendering pipeline same materials same lighting as characters, "
             f"8K high detail, macro photography, sharp focus, masterpiece, best quality, high resolution{lighting_suffix}"
         )
-        return prompt, 512, 512
+        return prompt, 1024, 1024
 
     def _build_preview_plan(self, asset: Asset, style_terms: str, consistency: dict | None = None) -> list[dict]:
         cons = consistency or {}
@@ -1020,53 +1045,66 @@ class AssetService:
                     "preview_role": "FRONT_FULL",
                     "preview_label": "正面全身",
                     "prompt": (
-                        f"{prefix}, full body front view standing facing camera straight on, "
-                        f"age {fields['age']}, gender {fields['gender']}, {fields['hair']}, {fields['hair_color_dir']}, "
-                        f"{fields['eye']}, {fields['face']}, wearing {fields['top']}, {fields['bottom']}, {fields['shoes']}, "
-                        f"pure seamless white studio background, {UE8K_QUALITY_BASELINE_SFX}, "
-                        f"masterpiece, best quality, highly detailed face and matching outfit, sharp focus{char_suffix}"
+                        f"{prefix}, 一张清晰的正面全身照，人物正对镜头自然站立，"
+                        f"年龄{fields.get('age_cn') or fields['age']}岁 性别{fields.get('gender_cn') or fields['gender']}，"
+                        f"{fields.get('hair_cn') or fields['hair']}，{fields.get('hair_color_cn') or fields['hair_color_dir']}，"
+                        f"{fields.get('eye_cn') or fields['eye']}，{fields.get('face_cn') or fields['face']}，"
+                        f"身着 {fields.get('top_cn') or fields['top']}，{fields.get('bottom_cn') or fields['bottom']}，"
+                        f"{fields.get('shoes_cn') or fields['shoes']}，"
+                        f"纯白无缝工作室背景，{UE8K_QUALITY_CHAR_ONLY}，"
+                        f"full body front view standing facing camera, masterpiece, best quality, "
+                        f"highly detailed face and matching outfit, sharp focus{char_suffix}"
                     ),
-                    "width": 512,
-                    "height": 768,
+                    "width": 768,
+                    "height": 1152,
                 },
                 {
                     "preview_role": "SIDE_HALF",
                     "preview_label": "侧面半身",
                     "prompt": (
-                        f"{prefix}, half-body right-side profile 90 degree side view, clear side face jawline and cheek, "
-                        f"profile silhouette face outline, {fields['hair']} hair and back of head/nape detail visible, "
-                        f"{fields['top']} same outfit as front view, pure white background, {UE8K_QUALITY_BASELINE_SFX}, "
+                        f"{prefix}, 一张清晰的右侧半身侧面照，90度正侧视角，"
+                        f"展现清晰侧脸轮廓下颌线颧骨线条与鼻梁侧面剪影，"
+                        f"{fields.get('hair_cn') or fields['hair']} 发型后脑勺发尾细节清晰可见，"
+                        f"{fields.get('top_cn') or fields['top']} 同款服装同色同面料与正面照一致，"
+                        f"纯白无缝工作室背景，{UE8K_QUALITY_CHAR_ONLY}，"
+                        f"half-body right-side 90 degree profile view, clear jawline cheek silhouette, "
                         f"masterpiece, best quality, highres{char_suffix}"
                     ),
-                    "width": 512,
-                    "height": 768,
+                    "width": 768,
+                    "height": 1152,
                 },
                 {
                     "preview_role": "BACK_FULL",
                     "preview_label": "背面全身",
                     "prompt": (
-                        f"{prefix}, full body back view directly from behind, {fields['back']}, "
-                        f"back of head hair details {fields['hair']}, same outfit colors same fabric as front view, "
-                        f"back robe collar structure and waist sash belt drape clearly visible, "
-                        f"pure white studio background, {UE8K_QUALITY_BASELINE_SFX}, "
+                        f"{prefix}, 一张清晰的背面全身照，正后方视角拍摄，"
+                        f"背部标志性细节：{fields.get('back_cn') or fields['back']}，"
+                        f"后脑勺发尾细节 {fields.get('hair_cn') or fields['hair']}，"
+                        f"与正面同款服装同样颜色同样面料，背面衣领结构腰带系法衣褶垂坠清晰可见，"
+                        f"纯白工作室背景，{UE8K_QUALITY_CHAR_ONLY}，"
+                        f"full body back view directly from behind, same outfit same fabric same colors, "
+                        f"back robe collar waist belt sash drape clearly visible, "
                         f"masterpiece, best quality, highres{char_suffix}"
                     ),
-                    "width": 512,
-                    "height": 768,
+                    "width": 768,
+                    "height": 1152,
                 },
                 {
                     "preview_role": "FACE_CLOSEUP",
                     "preview_label": "面部表情特写",
                     "prompt": (
-                        f"{prefix}, tight close-up portrait shoulders up only, natural neutral calm expression, "
-                        f"age {fields['age']}, gender {fields['gender']}, {fields['eye']}, {fields['face']}, "
-                        f"{fields['hair_color_dir']}, clean natural skin texture WITHOUT theatrical stage makeup, "
-                        f"no opera makeup no costume drama makeup, natural real face structure, "
-                        f"pure white background studio soft lighting, {UE8K_QUALITY_BASELINE_SFX}, "
+                        f"{prefix}, 一张面部肩膀以上大头特写，自然平静中性表情，"
+                        f"年龄{fields.get('age_cn') or fields['age']}岁 性别{fields.get('gender_cn') or fields['gender']}，"
+                        f"{fields.get('eye_cn') or fields['eye']} 瞳孔清晰，{fields.get('face_cn') or fields['face']}，"
+                        f"{fields.get('hair_color_cn') or fields['hair_color_dir']}，"
+                        f"真实自然皮肤纹理毛孔细节无戏曲妆容无浓妆无舞台妆无腮红无金耳环，"
+                        f"纯白无缝工作室背景柔和打光，{UE8K_QUALITY_CHAR_ONLY}，"
+                        f"tight close-up portrait shoulders up only, natural neutral calm expression, "
+                        f"clean natural skin texture, no opera makeup no stage makeup, natural real face structure, "
                         f"masterpiece, best quality, high detail{char_suffix}"
                     ),
-                    "width": 512,
-                    "height": 512,
+                    "width": 1024,
+                    "height": 1024,
                 },
             ]
         if asset.asset_type == AssetType.SCENE.value:
@@ -1088,41 +1126,43 @@ class AssetService:
                     "preview_role": "WIDE_PANORAMA",
                     "preview_label": "宽景全景",
                     "prompt": (
-                        f"场景名称: {scene_name}; 场景描述: {scene_type}, {time_season}, 光线: {light}, "
-                        f"标志性陈设: period accurate architectural features and props, 构图: ultra wide panoramic establishing shot, "
-                        f"氛围: {atmosphere}; {prefix}, ultra wide panoramic establishing shot, "
+                        f"场景名称: {scene_name}。场景描述: 宽景全景视图，{scene_type}，{time_season}，光线 {light}，"
+                        f"标志性陈设: 精确还原时代特征的建筑结构与陈设道具自然分布，"
+                        f"构图: 超宽全景定场镜头，氛围: {atmosphere}。 "
+                        f"{prefix}; ultra wide panoramic establishing shot, "
                         f"epic sweeping landscape vista, dramatic sky and volumetric weather, no humans no characters, "
-                        f"Unreal Engine 5 cinematic quality, real human 3D rendering style identical to characters, "
-                        f"photorealistic PBR materials, 8K high detail, matched art style{scene_suffix}"
+                        f"{UE8K_QUALITY_SCENE_ONLY}, masterpiece, best quality, high detail{scene_suffix}"
                     ),
-                    "width": 768,
-                    "height": 432,
+                    "width": 1792,
+                    "height": 768,
                 },
                 {
                     "preview_role": "MID_ESTABLISH",
                     "preview_label": "中景主视角",
                     "prompt": (
-                        f"场景名称: {scene_name}; 场景描述: {scene_type}, {time_season}, 光线: {light}, "
-                        f"标志性陈设: walkable path/large furniture for actor entry blocking, 构图: medium shot main camera angle, "
-                        f"氛围: {atmosphere}; {prefix}, medium shot main camera angle composition, "
+                        f"场景名称: {scene_name}。场景描述: 中景主视角机位，{scene_type}，{time_season}，光线 {light}，"
+                        f"标志性陈设: 演员可行走的空间路径与大型家具入口动线清晰，"
+                        f"构图: 中景主镜头电影级构图，氛围: {atmosphere}。 "
+                        f"{prefix}; medium shot main camera angle composition, "
                         f"practical film set layout with walkable space for character blocking, cinematic natural lighting, "
-                        f"no people no characters, Unreal Engine 5 quality same as characters, 8K photorealism{scene_suffix}"
+                        f"no people no characters, {UE8K_QUALITY_SCENE_ONLY}, 8K photorealism{scene_suffix}"
                     ),
-                    "width": 768,
-                    "height": 512,
+                    "width": 1536,
+                    "height": 864,
                 },
                 {
                     "preview_role": "ALT_ANGLE",
                     "preview_label": "切换机位角度",
                     "prompt": (
-                        f"场景名称: {scene_name}; 场景描述: {scene_type}, {time_season}, 光线: {light}, "
-                        f"标志性陈设: same objects same time of day, 构图: opposite corner alternate camera angle, "
-                        f"氛围: {atmosphere}; {prefix}, alternate camera angle from opposite corner or different floor level, "
+                        f"场景名称: {scene_name}。场景描述: 对角反向机位，{scene_type}，{time_season}，光线 {light}，"
+                        f"标志性陈设: 完全相同的物体与时间点，"
+                        f"构图: 对面角落或不同楼层高度的交替机位，氛围: {atmosphere}。 "
+                        f"{prefix}; alternate camera angle from opposite corner or different floor level, "
                         f"same time same weather same color tone continuity for scene transition, lighting color matched exactly, "
-                        f"no people no characters, UE5 cinematic same material pipeline as character, masterpiece{scene_suffix}"
+                        f"no people no characters, {UE8K_QUALITY_SCENE_ONLY}, masterpiece{scene_suffix}"
                     ),
-                    "width": 768,
-                    "height": 512,
+                    "width": 1536,
+                    "height": 864,
                 },
             ]
         prop_suffix = f"{lighting_suffix}"
@@ -1139,31 +1179,36 @@ class AssetService:
                 "preview_role": "FRONT_PRODUCT",
                 "preview_label": "正面主视图",
                 "prompt": (
-                    f"模板A 独立道具; 道具名称: {prop_name}; 道具描述: 类别 historical period prop, "
-                    f"{prop_desc}, {prop_state}; 构图: 平视 eye-level front view symmetrical product shot, "
-                    f"背景: 纯白抠图 pure white seamless cutout, isolated, no environment; 光源: 三点式工作室灯光左上主光; "
-                    f"{prefix}, centered symmetrical front view product photo, pure seamless white studio background cutout, "
-                    f"soft key light + rim light setup, no humans no environment, object only, macro sharp textures, "
-                    f"Unreal Engine 5 cinematic quality identical to character rendering pipeline, "
-                    f"photorealistic PBR material rendering, 8K macro high detail, sharp focus, "
-                    f"masterpiece, best quality{prop_suffix}"
+                    f"一张独立的单个道具产品图，绝对聚焦在单个道具物体中心，"
+                    f"模板A 独立道具。道具名称: {prop_name}。道具描述: 类别 符合时代的历史道具，"
+                    f"{prop_desc}，{prop_state}。构图: 平视 eye-level 正面正视对称产品图，"
+                    f"背景: 纯白无缝抠图 纯单色白色背景 孤立道具 无任何周围环境无人无背景；"
+                    f"光源: 专业工作室三点打光 左上45度主光 右侧柔和补光 背面右后轮廓光。 "
+                    f"{prefix}; centered symmetrical front view product photo, "
+                    f"pure seamless solid white studio background cutout, single ONE object only, "
+                    f"soft key 45deg upper-left light + fill + rim light setup, absolutely NO humans NO environment NO scenery, "
+                    f"only the object fills frame, macro sharp textures on surface, "
+                    f"{UE8K_QUALITY_PROP_ONLY}, 8K macro high detail, sharp focus, masterpiece, best quality{prop_suffix}"
                 ),
-                "width": 512,
-                "height": 512,
+                "width": 1024,
+                "height": 1024,
             },
             {
                 "preview_role": "IN_CONTEXT",
                 "preview_label": "使用场景图",
                 "prompt": (
-                    f"模板B 场景中道具; 场景名称: matching period appropriate interior; 道具清单: 1x {prop_name}: prominent foreground position, {prop_desc}; "
-                    f"场景描述: matching character art style period interior, warm soft daylight, 以上道具分布在 foreground center on surface; "
-                    f"{prefix}, contextual hero shot of object being held or placed in matching period interior setting, "
-                    f"cinematic storytelling composition, soft bokeh background, focus dead sharp on object, "
-                    f"Unreal Engine 5 cinematic identical rendering as characters, matched art style same materials same color palette, "
+                    f"单个道具处于匹配时代环境的场景剧照，道具作为绝对视觉焦点清晰锐利，背景自然虚化，"
+                    f"模板B 场景中道具。场景名称: 与角色匹配的古风内饰外景；道具清单: 1x {prop_name}: 前景画面核心突出位置，{prop_desc}；"
+                    f"场景描述: 与角色画风同一渲染管线的时代内饰外景，柔和自然日光照入，"
+                    f"以上道具放置在 前景正中央桌面或角色手旁自然握持。 "
+                    f"{prefix}; contextual hero shot of single object being held or placed naturally in matching interior setting, "
+                    f"cinematic storytelling composition, soft bokeh shallow depth of field background, "
+                    f"focus dead sharp on the object itself not background, "
+                    f"{UE8K_QUALITY_PROP_ONLY}, identical rendering pipeline as characters same materials same color palette, "
                     f"8K high detail, masterpiece, best quality{prop_suffix}"
                 ),
-                "width": 768,
-                "height": 512,
+                "width": 1536,
+                "height": 864,
             },
         ]
 
