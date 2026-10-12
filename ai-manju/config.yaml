@@ -1,0 +1,57 @@
+project:
+  name: ai-manju
+  root: /workspace/ai-manju
+
+mirrors:
+  hf_endpoint: https://hf-mirror.com
+  use_hf_mirror: true
+  prefer_modelscope: true
+
+paths:
+  data_dir: /workspace/ai-manju/data
+  model_dir: /workspace/ai-manju/models
+  upload_dir: /workspace/ai-manju/uploads
+  output_dir: /workspace/ai-manju/output
+  log_dir: /workspace/ai-manju/logs
+
+environment:
+  python_min_version: "3.11"
+  recommended_free_disk_gb: 200
+  ref2va_min_free_disk_gb: 120
+  require_nvidia_smi: true
+  require_wsl: false
+
+downloads:
+  default_targets:
+    - ref2va_bundle
+
+  models:
+    bge_small_zh:
+      source: modelscope
+      model_id: BAAI/bge-small-zh-v1.5
+      local_dir: /workspace/ai-manju/models/bge-small-zh-v1.5
+      approx_size_gb: 1
+
+    qwen38_flash_next:
+      source: modelscope
+      model_id: ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+      local_dir: /workspace/ai-manju/models/Qwen3.8-Flash-Next
+      approx_size_gb: 20
+
+    ref2va_bundle:
+      source: modelscope
+      model_id: Gluttony10/MiniMax-H3-INT8-CONVROT
+      local_dir: /workspace/ai-manju/models/MiniMax-H3-INT8-CONVROT
+      approx_size_gb: 99
+
+    flux_dev:
+      source: modelscope
+      model_id: nunchaku-tech/nunchaku-flux.1-dev
+      local_dir: /workspace/ai-manju/models/flux.1-dev
+      approx_size_gb: 25
+
+    chatterbox:
+      source: modelscope
+      model_id: ResembleAI/chatterbox
+      local_dir: /workspace/ai-manju/models/chatterbox
+      approx_size_gb: 5
