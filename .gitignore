@@ -8,6 +8,7 @@ backend/autovision.db
 backend/autovision.db-journal
 backend/.env
 backend/.env.local
+backend/.venv/
 
 storage/
 backend/storage/audio/

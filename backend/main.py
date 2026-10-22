@@ -3,8 +3,7 @@ import sys
 from pathlib import Path
 
 _BACKEND_DIR = Path(__file__).resolve().parent
-_LIBS_DIR = _BACKEND_DIR / "libs"
-for _p in (str(_BACKEND_DIR), str(_LIBS_DIR)):
+for _p in (str(_BACKEND_DIR),):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

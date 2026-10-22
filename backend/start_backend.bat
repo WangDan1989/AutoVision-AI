@@ -1,14 +1,31 @@
 @echo off
 chcp 65001 >nul
 setlocal
-set "BD=c:\Users\王丹\Documents\GitHub\AutoVision-AI\backend"
-set "PY=D:\ComfyUI_windows_portable\python_embeded\python.exe"
-set "LOG=%BD%\storage\uvicorn_server.log"
-set "ERR=%BD%\storage\uvicorn_crash.log"
-if not exist "%BD%\storage" mkdir "%BD%\storage"
-echo ===== RESTART %date% %time% ===== >> "%LOG%"
-echo ===== RESTART %date% %time% ===== >> "%ERR%"
-set PYTHONPATH=%BD%;%BD%\libs
+
+set "BD=%~dp0"
 cd /d "%BD%"
-start "AutoVision-Backend" /min "%PY%" -u "%BD%\__run_server.py" >>"%LOG%" 2>>"%ERR%"
+
+if not exist "storage" mkdir "storage"
+if not exist "storage\images" mkdir "storage\images"
+if not exist "storage\videos" mkdir "storage\videos"
+if not exist "storage\audio" mkdir "storage\audio"
+if not exist "storage\exports" mkdir "storage\exports"
+if not exist "storage\loras" mkdir "storage\loras"
+if not exist "storage\temp" mkdir "storage\temp"
+
+if exist ".venv\Scripts\python.exe" (
+  set "PYTHON_EXE=.venv\Scripts\python.exe"
+) else (
+  set "PYTHON_EXE=py"
+)
+
+echo Starting backend from %BD%
+echo Using interpreter: %PYTHON_EXE%
+
+if "%PYTHON_EXE%"=="py" (
+  py -3.12 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+) else (
+  "%PYTHON_EXE%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+)
+
 endlocal

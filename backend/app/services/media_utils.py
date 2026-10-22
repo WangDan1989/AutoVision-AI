@@ -20,6 +20,22 @@ def ensure_binary(name: str) -> str:
     if Path(name).exists():
         return str(Path(name).resolve())
     binary_path = shutil.which(name)
+    if binary_path:
+        return binary_path
+    basename = Path(name).name
+    if basename and basename != name:
+        binary_path = shutil.which(basename)
+        if binary_path:
+            return binary_path
+        lowered = basename.lower()
+        if "ffmpeg" in lowered:
+            binary_path = shutil.which("ffmpeg")
+            if binary_path:
+                return binary_path
+        if "ffprobe" in lowered:
+            binary_path = shutil.which("ffprobe")
+            if binary_path:
+                return binary_path
     if not binary_path:
         raise RuntimeError(f"未找到可执行文件：{name}")
     return binary_path
