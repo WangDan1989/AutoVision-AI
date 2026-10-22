@@ -40,6 +40,43 @@
 
 - `docs/`：联调与排错文档
 
+## 先跑离线 Demo
+
+如果你暂时还没把 `Ollama`、`ComfyUI`、`FFmpeg` 全配好，建议先跑离线示例项目，先把工作台界面和最小流程走通。
+
+### 1. 生成示例项目
+
+```bash
+cd backend
+python scripts/seed_demo_project.py
+```
+
+脚本会自动写入：
+
+- 1 个示例项目
+- 3 个示例分镜
+- 4 个示例资产
+- 3 张首帧占位图
+- 3 条占位音频
+- 如果本机存在 `ffmpeg`，还会额外生成 3 段占位视频
+
+### 2. 启动前后端
+
+- 后端：按下文 Windows 或 Linux/macOS 启动方式执行
+- 前端：按下文 Windows 或 Linux/macOS 启动方式执行
+
+### 3. 打开项目中心
+
+- 浏览器访问 `http://127.0.0.1:5173`
+- 找到 `AutoVision 离线示例项目`
+- 直接进入工作台
+
+更多说明见：
+
+- `docs/demo-quickstart.md`
+- `docs/troubleshooting.md`
+- `docs/github-publish.md`
+
 ## Linux / macOS 后端启动
 
 ```bash
@@ -346,4 +383,3 @@ EXPORT_TRANSITION_SEC=0.35
 - 转场目前为统一淡入淡出，不支持每段自定义
 
 - 字幕目前支持分镜级时间轴编辑，但还不是逐句逐字级别
-
