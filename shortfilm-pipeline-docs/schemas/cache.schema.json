@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/cache.schema.json",
+  "title": "Cache Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "entries"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cacheEntry"
+      }
+    }
+  },
+  "$defs": {
+    "cacheEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cache_key",
+        "kind",
+        "source_text",
+        "audio_path",
+        "created_at",
+        "last_accessed_at",
+        "hit_count"
+      ],
+      "properties": {
+        "cache_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tts",
+            "lipsync",
+            "tts_and_lipsync"
+          ]
+        },
+        "source_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audio_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lipsync_path": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_accessed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "hit_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

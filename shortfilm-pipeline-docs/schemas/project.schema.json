@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/project.schema.json",
+  "title": "Shortfilm Project",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "name",
+    "version",
+    "engine",
+    "assets",
+    "personas",
+    "scripts",
+    "cameras",
+    "backend",
+    "audio",
+    "render"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "godot"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^4(\\.\\d+){0,2}$"
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "characters",
+        "scenes",
+        "props",
+        "actions"
+      ],
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assetRef"
+          }
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assetRef"
+          }
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assetRef"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionRef"
+          }
+        }
+      }
+    },
+    "personas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRef"
+      }
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRef"
+      }
+    },
+    "cameras": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRef"
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_backend",
+        "strata",
+        "ollama",
+        "queue",
+        "fallback_mode"
+      ],
+      "properties": {
+        "active_backend": {
+          "type": "string",
+          "enum": [
+            "strata",
+            "ollama"
+          ]
+        },
+        "strata": {
+          "$ref": "#/$defs/backendEndpoint"
+        },
+        "ollama": {
+          "$ref": "#/$defs/backendEndpoint"
+        },
+        "queue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_concurrency",
+            "max_queue_size",
+            "request_timeout_ms"
+          ],
+          "properties": {
+            "max_concurrency": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_queue_size": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "request_timeout_ms": {
+              "type": "integer",
+              "minimum": 1000
+            }
+          }
+        },
+        "fallback_mode": {
+          "type": "string",
+          "enum": [
+            "preset_only",
+            "llm_with_preset_fallback"
+          ]
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tts",
+        "lipsync",
+        "library"
+      ],
+      "properties": {
+        "tts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "voice_id",
+            "sample_rate",
+            "cache_enabled"
+          ],
+          "properties": {
+            "provider": {
+              "const": "piper"
+            },
+            "voice_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sample_rate": {
+              "type": "integer",
+              "enum": [
+                16000,
+                22050,
+                24000
+              ]
+            },
+            "cache_enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "lipsync": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "enabled"
+          ],
+          "properties": {
+            "provider": {
+              "const": "rhubarb"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "library": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bgm",
+            "sfx",
+            "ambience"
+          ],
+          "properties": {
+            "bgm": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/audioRef"
+              }
+            },
+            "sfx": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/audioRef"
+              }
+            },
+            "ambience": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/audioRef"
+              }
+            }
+          }
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "resolution",
+        "fps",
+        "output_format"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "script_auto",
+            "live_director"
+          ]
+        },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "output_format": {
+          "type": "string",
+          "enum": [
+            "video",
+            "png_sequence",
+            "exr_sequence"
+          ]
+        },
+        "codec": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "assetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "license"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "pattern": "\\.(glb|gltf)$"
+        },
+        "license": {
+          "type": "string",
+          "enum": [
+            "CC0",
+            "MIT",
+            "Apache-2.0"
+          ]
+        }
+      }
+    },
+    "actionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "priority"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backendEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "host",
+        "port",
+        "model",
+        "temperature",
+        "top_p",
+        "max_tokens"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "audioRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "channel"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "bgm",
+            "sfx",
+            "ambience"
+          ]
+        }
+      }
+    }
+  }
+}

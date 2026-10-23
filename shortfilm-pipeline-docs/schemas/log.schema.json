@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/log.schema.json",
+  "title": "Log Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp",
+    "level",
+    "module",
+    "action",
+    "trace_id",
+    "request_id",
+    "code",
+    "message",
+    "degraded"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "level": {
+      "type": "string",
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
+    },
+    "module": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scene_id": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "character_id": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "context": {
+      "type": "object"
+    }
+  }
+}

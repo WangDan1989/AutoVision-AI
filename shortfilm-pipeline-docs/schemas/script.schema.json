@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/script.schema.json",
+  "title": "Scene Script",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "script_id",
+    "scene_id",
+    "title",
+    "cast",
+    "events",
+    "shot_sequence"
+  ],
+  "properties": {
+    "script_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scene_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cast": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "shot_sequence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/shot"
+      }
+    },
+    "fallback_mode": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "$defs": {
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "time",
+            "distance",
+            "dialogue_finished",
+            "state"
+          ]
+        },
+        "value": {
+          "type": [
+            "number",
+            "string",
+            "object"
+          ]
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "target"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "move",
+            "play_action",
+            "generate_dialogue",
+            "play_preset_dialogue",
+            "switch_camera",
+            "play_audio",
+            "set_state"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "condition",
+        "next_event_id"
+      ],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "next_event_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "trigger",
+        "actions"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger"
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "next_event_id": {
+          "type": "string"
+        }
+      }
+    },
+    "shot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shot_id",
+        "camera_id",
+        "start_event_id"
+      ],
+      "properties": {
+        "shot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "camera_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "end_event_id": {
+          "type": "string"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

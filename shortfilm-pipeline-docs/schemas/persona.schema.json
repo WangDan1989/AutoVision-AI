@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/persona.schema.json",
+  "title": "Character Persona",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "persona_id",
+    "character_id",
+    "display_name",
+    "profile",
+    "speaking_style",
+    "constraints",
+    "fallback_lines"
+  ],
+  "properties": {
+    "persona_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "character_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "world_role",
+        "temperament"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "world_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temperament": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "speaking_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tone",
+        "pace",
+        "taboos"
+      ],
+      "properties": {
+        "tone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pace": {
+          "type": "string",
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "taboos": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "must_follow",
+        "must_avoid"
+      ],
+      "properties": {
+        "must_follow": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "must_avoid": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "fallback_lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "situation",
+          "text"
+        ],
+        "properties": {
+          "situation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
