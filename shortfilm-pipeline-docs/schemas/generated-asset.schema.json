@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/generated-asset.schema.json",
+  "title": "Generated Draft Asset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "draft_asset_id",
+    "asset_id",
+    "asset_type",
+    "source_mode",
+    "backend",
+    "status",
+    "design_input",
+    "output_files"
+  ],
+  "properties": {
+    "draft_asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_type": {
+      "type": "string",
+      "enum": [
+        "character",
+        "scene",
+        "prop"
+      ]
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "text_to_3d",
+        "image_to_3d",
+        "hybrid"
+      ]
+    },
+    "backend": {
+      "type": "string",
+      "minLength": 1
+    },
+    "job_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "processing",
+        "draft_ready",
+        "postprocess_failed",
+        "rejected"
+      ]
+    },
+    "design_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_prompt": {
+          "type": "string"
+        },
+        "reference_image_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "preview_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "output_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

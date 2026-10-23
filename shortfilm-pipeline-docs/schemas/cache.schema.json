@@ -43,7 +43,9 @@
           "enum": [
             "tts",
             "lipsync",
-            "tts_and_lipsync"
+            "tts_and_lipsync",
+            "generation_preview",
+            "generation_intermediate"
           ]
         },
         "source_text": {

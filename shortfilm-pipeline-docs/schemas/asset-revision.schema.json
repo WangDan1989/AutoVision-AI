@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/asset-revision.schema.json",
+  "title": "Approved Asset Revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision_id",
+    "asset_id",
+    "asset_type",
+    "status",
+    "runtime_asset_path",
+    "quality_report_id",
+    "runtime_locked"
+  ],
+  "properties": {
+    "revision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_type": {
+      "type": "string",
+      "enum": [
+        "character",
+        "scene",
+        "prop"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "review_pending",
+        "approved",
+        "rejected",
+        "archived"
+      ]
+    },
+    "runtime_asset_path": {
+      "type": "string",
+      "pattern": "\\.(glb|gltf)$"
+    },
+    "texture_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "preview_path": {
+      "type": "string"
+    },
+    "rig_profile_id": {
+      "type": "string"
+    },
+    "quality_report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_locked": {
+      "type": "boolean"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "runtime_locked": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        }
+      }
+    }
+  ]
+}

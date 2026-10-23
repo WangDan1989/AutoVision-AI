@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/retarget-profile.schema.json",
+  "title": "Retarget Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "target_skeleton",
+    "bone_map"
+  ],
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_skeleton": {
+      "type": "string",
+      "minLength": 1
+    },
+    "root_bone": {
+      "type": "string"
+    },
+    "bone_map": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_bone",
+          "target_bone"
+        ],
+        "properties": {
+          "source_bone": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_bone": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "compatible_action_sets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

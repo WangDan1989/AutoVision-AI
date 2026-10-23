@@ -10,6 +10,7 @@
     "display_name",
     "profile",
     "speaking_style",
+    "visual_profile",
     "constraints",
     "fallback_lines"
   ],
@@ -76,6 +77,44 @@
             "type": "string",
             "minLength": 1
           }
+        }
+      }
+    },
+    "visual_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appearance_prompt",
+        "negative_prompt",
+        "style_tags",
+        "target_rig_profile_id"
+      ],
+      "properties": {
+        "appearance_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "style_tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reference_image_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "target_rig_profile_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

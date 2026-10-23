@@ -54,6 +54,15 @@
     "character_id": {
       "type": "string"
     },
+    "asset_id": {
+      "type": "string"
+    },
+    "revision_id": {
+      "type": "string"
+    },
+    "job_id": {
+      "type": "string"
+    },
     "code": {
       "type": "string",
       "minLength": 1

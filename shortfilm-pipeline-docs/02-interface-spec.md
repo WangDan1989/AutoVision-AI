@@ -2,72 +2,72 @@
 
 ## 1. 目的
 
-本文定义系统内部模块与本地第三方组件接入时采用的统一请求响应结构、错误码、超时策略、重试策略与熔断规则。目标是保证：
+本文定义在“AI 参与 3D 资产生成”的新架构下，系统内部模块和第三方本地组件之间使用的统一请求响应结构、错误码、超时、重试和熔断规则。目标如下：
 
-- Strata 与 Ollama 可通过统一接口适配。
-- 模块之间错误表达一致，便于调试与降级。
-- 单模块异常不扩散为整体剧情中断。
+- 统一 AI 3D 建模后端、LLM 后端、TTS、Lip Sync 与运行时模块的交互方式。
+- 将资产生成期与拍摄运行期的错误收敛为统一标准。
+- 保证资产草稿失败不污染拍摄链路，运行期错误不破坏整体剧情推进。
 
-本文为 HLD 级接口规约，不限定传输方式必须是 HTTP；模块内可采用方法调用、进程调用或本地 IPC，但抽象数据结构保持一致。
+本文为 HLD 级接口规约，不强制限定传输层必须为 HTTP；模块内可使用本地服务、CLI、IPC 或进程内调用，但抽象请求和响应结构保持一致。
 
-## 2. 统一请求结构
+## 2. 统一包结构
 
 ### 2.1 通用请求包
 
 ```json
 {
-  "request_id": "req_01JZ8G5W7VQ7V3P0B9X4WY1K2A",
-  "trace_id": "trace_scene_0003",
-  "module": "dialogue_service",
-  "action": "generate_dialogue",
-  "timestamp_ms": 1792726207000,
-  "deadline_ms": 1792726237000,
+  "request_id": "req_01K0ASSET001",
+  "trace_id": "trace_asset_char_lin_v2",
+  "module": "asset_generation_orchestrator",
+  "action": "submit_generation_job",
+  "timestamp_ms": 1792729200000,
+  "deadline_ms": 1792729500000,
   "payload": {},
   "meta": {
     "project_id": "proj_demo",
-    "scene_id": "scene_01",
-    "episode_id": "ep_001",
-    "operator": "system"
+    "asset_id": "char_lin",
+    "asset_type": "character",
+    "operator": "user"
   }
 }
 ```
 
-字段约束：
+字段说明：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `request_id` | string | 是 | 单次请求唯一标识 |
-| `trace_id` | string | 是 | 跨模块链路跟踪 ID |
-| `module` | string | 是 | 发起请求的模块名 |
+| `trace_id` | string | 是 | 跨模块链路追踪 ID |
+| `module` | string | 是 | 发起请求模块 |
 | `action` | string | 是 | 目标动作 |
 | `timestamp_ms` | integer | 是 | 请求创建时间 |
-| `deadline_ms` | integer | 否 | 统一超时截止时间 |
-| `payload` | object | 是 | 业务负载 |
-| `meta` | object | 否 | 工程、场景、角色等上下文 |
+| `deadline_ms` | integer | 否 | 请求截止时间 |
+| `payload` | object | 是 | 业务数据 |
+| `meta` | object | 否 | 工程、资产、场景、操作者等上下文 |
 
 约束：
 
-- `payload` 内只放业务参数，不承载链路控制参数。
-- 模块不得依赖未声明的 `meta` 字段。
+- `payload` 只放业务参数，不承载重试、并发等控制参数。
 - 所有时间戳采用 Unix Epoch 毫秒。
+- `meta` 允许扩展，但下游模块不得依赖未在文档中声明的字段。
 
 ### 2.2 通用响应包
 
 ```json
 {
-  "request_id": "req_01JZ8G5W7VQ7V3P0B9X4WY1K2A",
-  "trace_id": "trace_scene_0003",
+  "request_id": "req_01K0ASSET001",
+  "trace_id": "trace_asset_char_lin_v2",
   "success": true,
   "code": "OK",
-  "message": "success",
+  "message": "job accepted",
   "data": {},
   "error": null,
   "degraded": false,
-  "duration_ms": 1850
+  "duration_ms": 62
 }
 ```
 
-字段约束：
+字段说明：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -75,39 +75,190 @@
 | `trace_id` | string | 是 | 回传原链路 ID |
 | `success` | boolean | 是 | 是否成功完成 |
 | `code` | string | 是 | 标准结果码 |
-| `message` | string | 是 | 面向日志与调试面板的简要说明 |
-| `data` | object/null | 是 | 成功数据或降级结果 |
-| `error` | object/null | 是 | 失败时错误详情 |
+| `message` | string | 是 | 简要说明 |
+| `data` | object/null | 是 | 成功结果或降级结果 |
+| `error` | object/null | 是 | 失败详情 |
 | `degraded` | boolean | 是 | 是否发生降级 |
-| `duration_ms` | integer | 是 | 本次处理耗时 |
+| `duration_ms` | integer | 是 | 处理耗时 |
 
 ### 2.3 标准错误对象
 
 ```json
 {
-  "category": "backend_timeout",
+  "category": "generation_backend_timeout",
   "retryable": true,
-  "source": "ollama_adapter",
+  "source": "asset_generation_gateway",
   "details": {
-    "http_status": 504,
-    "backend": "ollama",
-    "attempt": 2
+    "backend": "generator_a",
+    "job_id": "job_char_lin_002",
+    "attempt": 1
   }
 }
 ```
 
-字段说明：
+约束：
 
-- `category`：错误分类，供熔断与降级规则匹配。
-- `retryable`：是否可重试。
-- `source`：错误产生模块。
-- `details`：可选附加信息，不得泄露敏感路径或系统密钥。
+- `category` 用于熔断、重试与告警归类。
+- `retryable` 由源模块明确给出。
+- `details` 可包含排障信息，但不得泄露敏感路径、密钥或个人信息。
 
 ## 3. 模块动作规约
 
-### 3.1 LLM 网关
+## 3.1 AI 资产生成编排
 
-#### `generate_dialogue`
+### `submit_generation_job`
+
+请求 `payload`：
+
+```json
+{
+  "asset_type": "character",
+  "source_mode": "text_to_3d",
+  "backend": "generator_a",
+  "design_input": {
+    "prompt": "二十多岁的冷静女情报员，现代写实风格，短发，风衣，便于绑定标准人形骨架",
+    "negative_prompt": "低模卡通、夸张比例、四肢缺失、面部塌陷",
+    "reference_images": []
+  },
+  "constraints": {
+    "target_format": "glb",
+    "needs_rig": true,
+    "target_rig_profile_id": "humanoid_v1"
+  }
+}
+```
+
+成功响应 `data`：
+
+```json
+{
+  "job_id": "job_char_lin_002",
+  "status": "queued",
+  "backend": "generator_a"
+}
+```
+
+### `query_generation_job`
+
+请求 `payload`：
+
+```json
+{
+  "job_id": "job_char_lin_002"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "job_id": "job_char_lin_002",
+  "status": "processing",
+  "progress": 0.64,
+  "draft_asset_id": "draft_char_lin_002"
+}
+```
+
+### `retry_generation_job`
+
+请求 `payload`：
+
+```json
+{
+  "job_id": "job_char_lin_002",
+  "reason": "backend_timeout"
+}
+```
+
+## 3.2 资产后处理
+
+### `postprocess_generated_asset`
+
+请求 `payload`：
+
+```json
+{
+  "draft_asset_id": "draft_char_lin_002",
+  "steps": [
+    "normalize_scale",
+    "normalize_material",
+    "rig_or_retarget",
+    "export_glb"
+  ],
+  "target_rig_profile_id": "humanoid_v1"
+}
+```
+
+成功响应 `data`：
+
+```json
+{
+  "revision_id": "char_lin_rev_002",
+  "status": "review_pending",
+  "runtime_asset_path": "assets/drafts/characters/char_lin/rev_002/char_lin.glb"
+}
+```
+
+## 3.3 资产质检与发布
+
+### `run_quality_checks`
+
+请求 `payload`：
+
+```json
+{
+  "revision_id": "char_lin_rev_002",
+  "checks": [
+    "mesh_integrity",
+    "material_integrity",
+    "scale_integrity",
+    "rig_integrity",
+    "godot_import"
+  ]
+}
+```
+
+成功响应 `data`：
+
+```json
+{
+  "report_id": "quality_char_lin_rev_002",
+  "status": "passed",
+  "summary": {
+    "mesh_integrity": "pass",
+    "material_integrity": "pass",
+    "scale_integrity": "pass",
+    "rig_integrity": "pass",
+    "godot_import": "pass"
+  }
+}
+```
+
+### `publish_asset_revision`
+
+请求 `payload`：
+
+```json
+{
+  "asset_id": "char_lin",
+  "revision_id": "char_lin_rev_002",
+  "lock_for_runtime": true
+}
+```
+
+成功响应 `data`：
+
+```json
+{
+  "asset_id": "char_lin",
+  "active_revision_id": "char_lin_rev_002",
+  "published": true
+}
+```
+
+## 3.4 LLM 网关
+
+### `generate_dialogue`
 
 请求 `payload`：
 
@@ -162,30 +313,9 @@
 }
 ```
 
-#### `check_backend_health`
+## 3.5 TTS 与 Lip Sync
 
-请求 `payload`：
-
-```json
-{
-  "backend": "strata"
-}
-```
-
-响应 `data`：
-
-```json
-{
-  "backend": "strata",
-  "status": "healthy",
-  "latency_ms": 120,
-  "circuit_state": "closed"
-}
-```
-
-### 3.2 TTS 服务
-
-#### `synthesize_or_load_cache`
+### `synthesize_or_load_cache`
 
 请求 `payload`：
 
@@ -209,9 +339,7 @@
 }
 ```
 
-### 3.3 Lip Sync 服务
-
-#### `generate_lipsync`
+### `generate_lipsync`
 
 请求 `payload`：
 
@@ -233,9 +361,9 @@
 }
 ```
 
-### 3.4 事件引擎
+## 3.6 事件引擎与渲染导出
 
-#### `advance_event`
+### `advance_event`
 
 请求 `payload`：
 
@@ -275,9 +403,7 @@
 }
 ```
 
-### 3.5 渲染导出
-
-#### `export_video`
+### `export_video`
 
 请求 `payload`：
 
@@ -306,14 +432,14 @@
 
 ## 4. 标准错误码
 
-### 4.1 错误码命名规则
+### 4.1 命名规则
 
-- 成功：`OK`
-- 校验类：`E1xxx`
-- 资源类：`E2xxx`
-- 后端与调用链类：`E3xxx`
-- 运行时流程类：`E4xxx`
-- 存储与导出类：`E5xxx`
+- `OK`：成功
+- `E1xxx`：校验类
+- `E2xxx`：资源与资产类
+- `E3xxx`：后端与调用链类
+- `E4xxx`：运行时与质量门禁类
+- `E5xxx`：存储、导出与日志类
 
 ### 4.2 错误码表
 
@@ -323,18 +449,25 @@
 | `E1001` | validation | 缺少必填字段 | 否 |
 | `E1002` | validation | 字段格式非法 | 否 |
 | `E1003` | validation | 脚本引用不存在 | 否 |
+| `E1004` | validation | 资产提示词非法或为空 | 否 |
 | `E2001` | resource | 资产文件不存在 | 否 |
 | `E2002` | resource | 音频文件不存在 | 否 |
 | `E2003` | resource | 动作片段不存在 | 否 |
+| `E2004` | resource | 草稿资产不存在 | 否 |
+| `E2005` | resource | 资产版本未批准 | 否 |
 | `E3001` | backend_unreachable | 后端不可达 | 是 |
 | `E3002` | backend_timeout | 后端超时 | 是 |
 | `E3003` | backend_overloaded | 后端繁忙或限流 | 是 |
 | `E3004` | backend_invalid_response | 后端响应无法解析 | 否 |
 | `E3005` | circuit_open | 熔断器已打开 | 否 |
+| `E3006` | generation_job_failed | 资产生成作业失败 | 视原因而定 |
+| `E3007` | postprocess_failed | 资产后处理失败 | 是 |
 | `E4001` | runtime | 触发器条件求值失败 | 否 |
 | `E4002` | runtime | 状态机切换非法 | 否 |
 | `E4003` | runtime | 动作优先级冲突未解决 | 否 |
 | `E4004` | runtime | 预设台词缺失，无法降级 | 否 |
+| `E4005` | quality_gate | 资产质量门禁未通过 | 否 |
+| `E4006` | runtime_asset_lock | 运行期引用了未锁定资产版本 | 否 |
 | `E5001` | storage | 工程保存失败 | 是 |
 | `E5002` | storage | 缓存写入失败 | 是 |
 | `E5003` | export | 导出编码失败 | 是 |
@@ -346,88 +479,91 @@
 
 | 模块动作 | 默认超时 | 说明 |
 | --- | --- | --- |
-| `check_backend_health` | 2 秒 | 快速健康检查 |
-| `generate_dialogue` | 90 秒 | 适配本地大模型推理 |
+| `submit_generation_job` | 10 秒 | 只负责接收与排队 |
+| `query_generation_job` | 2 秒 | 快速状态查询 |
+| `postprocess_generated_asset` | 10 分钟 | 模型清洗、材质整理、导出 |
+| `run_quality_checks` | 2 分钟 | 质量门禁检查 |
+| `generate_dialogue` | 90 秒 | 本地大模型推理 |
 | `synthesize_or_load_cache` | 30 秒 | TTS 或缓存读取 |
 | `generate_lipsync` | 20 秒 | 音频转嘴型 |
 | `advance_event` | 200 毫秒 | 事件推进必须轻量 |
-| `export_video` | 无固定上限 | 由任务级监控控制 |
-| `saveProject` | 5 秒 | 单工程写盘 |
+| `export_video` | 无固定上限 | 任务级监控和取消 |
 
 规则：
 
+- 长耗时资产生成作业采用异步任务模型，`submit_generation_job` 不等待最终模型产出。
 - 若请求自带 `deadline_ms`，以更严格者为准。
-- 事件引擎不等待长耗时任务同步完成，应通过任务状态或回调推进后续逻辑。
-- 导出任务属于长任务，不使用普通请求超时，而采用任务取消与进度监控。
+- 运行时事件引擎不等待资产生成任务完成。
 
 ## 6. 重试规则
 
-### 6.1 允许重试的场景
+### 6.1 允许重试
 
-- `E3001` 后端不可达
-- `E3002` 后端超时
-- `E3003` 后端繁忙
+- `E3001`、`E3002`、`E3003`
+- `E3007` 中的瞬时工具调用失败
 - `E5001`、`E5002`、`E5003`、`E5004` 中的瞬时 I/O 异常
 
-### 6.2 禁止重试的场景
+### 6.2 禁止重试
 
-- 任何校验类错误
+- 校验错误
+- 质量门禁未通过
+- 未批准资产被运行期引用
 - 后端响应结构非法
-- 脚本、资源、动作等静态引用缺失
 - 熔断器已打开
 
 ### 6.3 默认重试策略
 
 | 模块 | 最大重试次数 | 间隔策略 |
 | --- | --- | --- |
+| 资产生成提交 | 1 次 | 固定等待 1 秒 |
+| 资产后处理 | 1 次 | 固定等待 2 秒 |
 | LLM 调用 | 2 次 | 指数退避：1 秒、2 秒 |
 | TTS 调用 | 1 次 | 固定等待 500 毫秒 |
 | Lip Sync 调用 | 1 次 | 固定等待 500 毫秒 |
-| 工程保存 | 1 次 | 固定等待 300 毫秒 |
 | 导出写盘 | 2 次 | 指数退避：1 秒、2 秒 |
 
 规则：
 
-- 所有重试必须带原始 `trace_id`，`request_id` 可更新但需保留父请求引用。
-- 重试只对幂等动作启用。
-- 触发降级后立即停止进一步重试，避免时间线阻塞。
+- 所有重试必须复用原 `trace_id`。
+- 非幂等的资产生成作业只能在“未成功入队”时自动重试。
+- 一旦运行期已完成降级，不再继续重试以阻塞时间线。
 
 ## 7. 熔断规则
 
 ### 7.1 适用范围
 
-- 仅对 LLM 后端调用启用熔断器。
-- TTS 与 Lip Sync 默认采用“失败即降级”策略，不启用独立熔断器。
+- 对 LLM 后端调用启用熔断器。
+- 对 AI 建模后端的“提交入口”启用健康门禁和短期开关。
+- TTS 与 Lip Sync 仍采用“失败即降级”，不单独启用熔断器。
 
-### 7.2 状态机
+### 7.2 状态
 
-- `closed`：正常放行。
-- `open`：短时间内直接拒绝请求，返回 `E3005`。
-- `half_open`：允许少量探测请求进入。
+- `closed`：正常放行
+- `open`：短时间内拒绝请求
+- `half_open`：放行少量探测请求
 
 ### 7.3 打开条件
 
-满足以下条件之一即打开：
+LLM 熔断：
 
-1. 最近 10 次 LLM 请求中失败率大于等于 50%，且样本数不少于 4。
+1. 最近 10 次请求中失败率大于等于 50%，且样本数不少于 4。
 2. 连续 3 次出现 `E3001` 或 `E3002`。
 
-### 7.4 恢复条件
+AI 建模提交门禁：
 
-- 熔断打开 30 秒后进入 `half_open`。
-- `half_open` 下连续 2 次探测成功则恢复为 `closed`。
-- `half_open` 下任意 1 次失败则重新进入 `open`。
+1. 连续 3 次作业提交失败。
+2. 最近 5 分钟内后端健康检查持续失败。
 
-### 7.5 打开后的行为
+### 7.4 打开后的行为
 
-- 对话生成服务不再等待后端恢复，直接回退预设台词。
-- 调试面板显示当前熔断状态与最近失败原因。
+- LLM 熔断打开后，对话生成直接降级到预设台词。
+- AI 建模提交门禁打开后，不再接受新的生成作业，但不影响已批准资产拍摄。
 
-## 8. 双后端适配规约
+## 8. 双网关适配规约
 
-### 8.1 统一入参
+### 8.1 LLM 适配
 
-无论底层使用 Strata 还是 Ollama，业务层均使用以下统一字段：
+统一入参：
 
 - `backend`
 - `model`
@@ -436,22 +572,41 @@
 - `generation.top_p`
 - `generation.max_tokens`
 
-### 8.2 统一出参
+统一出参：
 
 - `text`
 - `finish_reason`
 - `token_usage.prompt_tokens`
 - `token_usage.completion_tokens`
 
-### 8.3 后端差异处理原则
+### 8.2 AI 建模适配
 
-- Strata 与 Ollama 的模型名、HTTP 路径、参数命名、流式响应差异全部在适配器内部处理。
-- 适配器必须将底层网络错误、状态码错误、解析错误转换为标准错误码。
-- 网关层不得依赖任一后端的专有字段。
+统一入参：
 
-## 9. 日志与可观测性规约
+- `asset_type`
+- `source_mode`
+- `design_input.prompt`
+- `design_input.reference_images`
+- `constraints.target_format`
+- `constraints.needs_rig`
+- `constraints.target_rig_profile_id`
 
-每个模块至少记录以下字段：
+统一出参：
+
+- `job_id`
+- `status`
+- `draft_asset_id`
+- `preview_paths`
+- `output_files`
+
+原则：
+
+- 网关层不得依赖底层后端专有字段。
+- 所有适配器都必须输出统一的草稿资产结构。
+
+## 9. 日志与可观测性
+
+每个模块至少记录：
 
 - `timestamp`
 - `level`
@@ -466,5 +621,6 @@
 
 额外要求：
 
-- 错误日志必须能关联到场景、角色、事件或导出任务。
-- 对话生成、TTS、Lip Sync、导出任务需记录耗时统计，供性能排查。
+- 资产生成链路必须能关联到 `asset_id`、`revision_id`、`job_id`。
+- 运行期链路必须能关联到 `scene_id`、`event_id`、`character_id`。
+- 质检失败必须保留可追踪的质量报告 ID。
